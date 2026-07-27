@@ -67,6 +67,7 @@ export interface Company {
   id: string;
   name: string;
   initials: string;
+  logoUrl: string;
   accent: string;
   industry: string;
   headquarters: string;
@@ -123,7 +124,7 @@ export const FILTER_CONFIG = {
     "Ireland",
     "United Arab Emirates",
   ],
-  experience: ["Fresher", "0–1 years", "1–3 years", "3–5 years", "5–8 years", "8+ years", "Lead"],
+  experience: ["Any experience", "Minimum 1 year", "Minimum 2 years", "Minimum 3 years", "Minimum 4 years"],
   workplace: ["Remote", "Hybrid", "On-site"],
   employment: ["Full-time", "Part-time", "Contract", "Internship"],
   datePosted: ["Any time", "Today", "Yesterday", "Last 7 days", "Last 30 days", "Last 45 days"],
@@ -171,6 +172,8 @@ export const JOB_DATA_META = {
 const importedJobs = liveJobData.jobs as Job[];
 const now = Date.now();
 const cutoff = now - 45 * 24 * 60 * 60 * 1000;
+const seniorTitlePattern =
+  /\b(senior|sr\.?|staff|principal|lead|manager|director|head|architect|vp|vice president|chief)\b/i;
 
 // Defensive runtime filter: even a stale generated file cannot expose expired or
 // older-than-45-day listings.
@@ -184,6 +187,9 @@ export const JOBS: Job[] = importedJobs.filter((job) => {
     published >= cutoff &&
     published <= now + 24 * 60 * 60 * 1000 &&
     expires > now &&
+    job.experienceMinimum >= 1 &&
+    job.experienceMinimum <= 4 &&
+    !seniorTitlePattern.test(job.title) &&
     /^https:\/\//.test(job.applicationUrl) &&
     /^https:\/\//.test(job.sourceUrl)
   );
@@ -201,6 +207,7 @@ for (const job of JOBS) {
   const company = companyMap.get(job.companyId);
   if (company) {
     company.activeJobs += 1;
+    if (!company.logoUrl && job.companyLogoUrl) company.logoUrl = job.companyLogoUrl;
     company.technologies = [...new Set([...company.technologies, ...job.skills])].slice(0, 8);
     continue;
   }
@@ -208,6 +215,7 @@ for (const job of JOBS) {
     id: job.companyId,
     name: job.companyName,
     initials: job.companyLogo,
+    logoUrl: job.companyLogoUrl,
     accent: colorFor(job.companyName),
     industry: job.category,
     headquarters: job.locationText,
@@ -233,6 +241,9 @@ export function formatSalary(job: Job) {
     notation: job.salaryMaximum >= 100_000 ? "compact" : "standard",
   });
   if (job.salaryMinimum > 0 && job.salaryMaximum > 0) {
+    if (job.salaryMinimum === job.salaryMaximum) {
+      return formatter.format(job.salaryMinimum);
+    }
     return `${formatter.format(job.salaryMinimum)}–${formatter.format(job.salaryMaximum)}`;
   }
   if (job.salaryMinimum > 0) return `From ${formatter.format(job.salaryMinimum)}`;

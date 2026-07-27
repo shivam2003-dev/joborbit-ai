@@ -8,6 +8,12 @@ const nextConfig: NextConfig = {
   assetPrefix: isGitHubPages ? "/joborbit-ai/" : undefined,
   images: {
     unoptimized: true,
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "cdn-images.himalayas.app",
+      },
+    ],
   },
   trailingSlash: true,
 };

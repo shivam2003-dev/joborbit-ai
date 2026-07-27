@@ -3,17 +3,20 @@
 import {
   ArrowLeft,
   ArrowRight,
+  BarChart3,
   Bell,
   Bookmark,
+  BookOpen,
   BriefcaseBusiness,
   Building2,
+  CalendarDays,
   Check,
   ChevronDown,
   CircleDollarSign,
   Cloud,
   ExternalLink,
+  FileText,
   Filter,
-  Flag,
   Globe2,
   HeartHandshake,
   LayoutDashboard,
@@ -28,10 +31,14 @@ import {
   ShieldCheck,
   Sparkles,
   Sun,
+  Target,
+  TrendingUp,
   Users,
   X,
   Zap,
 } from "lucide-react";
+import Image from "next/image";
+import { useSearchParams } from "next/navigation";
 import { useMemo, useState, type AnchorHTMLAttributes } from "react";
 import {
   CATEGORIES,
@@ -148,7 +155,7 @@ function FreshnessNotice() {
   return (
     <div className="demo-notice">
       <ShieldCheck size={15} />
-      <span><b>Live catalogue:</b> posted within 45 days, active at the last source check, and automatically stripped of expired listings. Updated {fetchedAtLabel}.</span>
+      <span><b>Early-career catalogue:</b> every role states a minimum of 1–4 years, was posted within 45 days, and has a future source expiry. Updated {fetchedAtLabel}.</span>
     </div>
   );
 }
@@ -196,8 +203,46 @@ function SearchBar({ compact = false }: { compact?: boolean }) {
 function CompanyLogo({ job, size = "medium" }: { job: Job; size?: "small" | "medium" | "large" }) {
   const company = getCompanyById(job.companyId);
   return (
-    <span className={`company-logo company-logo-${size}`} style={{ "--logo": company?.accent ?? "#4f46e5" } as React.CSSProperties}>
-      {job.companyLogo}
+    <CompanyMark
+      key={job.companyLogoUrl || job.companyId}
+      name={job.companyName}
+      initials={job.companyLogo}
+      logoUrl={job.companyLogoUrl}
+      accent={company?.accent ?? "#4f46e5"}
+      size={size}
+    />
+  );
+}
+
+function CompanyMark({
+  name,
+  initials,
+  logoUrl,
+  accent,
+  size = "medium",
+}: {
+  name: string;
+  initials: string;
+  logoUrl: string;
+  accent: string;
+  size?: "small" | "medium" | "large";
+}) {
+  const [failed, setFailed] = useState(!logoUrl);
+  return (
+    <span
+      className={`company-logo company-logo-${size} ${!failed ? "has-image" : ""}`}
+      style={{ "--logo": accent } as React.CSSProperties}
+    >
+      {!failed ? (
+        <Image
+          src={logoUrl}
+          alt={`${name} logo`}
+          fill
+          sizes={size === "large" ? "58px" : size === "small" ? "34px" : "46px"}
+          unoptimized
+          onError={() => setFailed(true)}
+        />
+      ) : initials}
     </span>
   );
 }
@@ -273,7 +318,7 @@ function Hero({ onChip }: { onChip: (value: string) => void }) {
       <div className="hero-copy">
         <span className="eyebrow"><Sparkles size={14} /> AI-ready career discovery</span>
         <h1>Find your next <span>AI, DevOps</span> or <span>MLOps opportunity</span></h1>
-        <p>Discover frequently updated opportunities from leading technology companies across India and worldwide.</p>
+        <p>Focused opportunities for professionals with a stated minimum requirement of 1–4 years.</p>
       </div>
       <div className="orbit-visual" aria-hidden="true">
         <span className="orbit orbit-one" />
@@ -298,12 +343,12 @@ function Hero({ onChip }: { onChip: (value: string) => void }) {
 }
 
 function HomePage({ saved, toggleSaved }: { saved: Set<string>; toggleSaved: (id: string) => void }) {
-  const featured = JOBS.filter((job) => job.isFeatured);
+  const featured = JOBS.slice(0, 6);
   const regions = [
-    { title: "Jobs in India", copy: `${JOBS.filter((job) => job.regionType === "India").length} active roles`, icon: <Flag />, href: "/jobs/india", className: "india" },
+    { title: "All early-career jobs", copy: `${JOBS.length} verified roles`, icon: <BriefcaseBusiness />, href: "/jobs", className: "india" },
     { title: "Jobs outside India", copy: `${JOBS.filter((job) => job.regionType === "Outside India").length} active roles`, icon: <Globe2 />, href: "/jobs/international", className: "world" },
     { title: "Remote worldwide", copy: `${JOBS.filter((job) => job.regionType === "Remote worldwide").length} active roles`, icon: <Cloud />, href: "/jobs/remote", className: "remote" },
-    { title: "Visa sponsorship", copy: "Explore eligible roles", icon: <HeartHandshake />, href: "/jobs?visa=true", className: "visa" },
+    { title: "Experience 1–4 years", copy: "No senior-level roles", icon: <HeartHandshake />, href: "/jobs", className: "visa" },
   ];
   return (
     <main>
@@ -391,7 +436,7 @@ function HomePage({ saved, toggleSaved }: { saved: Set<string>; toggleSaved: (id
         <div className="company-grid">
           {COMPANIES.slice(0, 5).map((company) => (
             <AppLink href={`/companies/${company.id}`} className="company-card" key={company.id}>
-              <span className="company-logo company-logo-large" style={{ "--logo": company.accent } as React.CSSProperties}>{company.initials}</span>
+              <CompanyMark name={company.name} initials={company.initials} logoUrl={company.logoUrl} accent={company.accent} size="large" />
               <b>{company.name}</b>
               <span>{company.industry}</span>
               <small>{company.activeJobs} active {company.activeJobs === 1 ? "job" : "jobs"}</small>
@@ -438,6 +483,13 @@ function FilterSidebar({
   setWorkplace,
   skill,
   setSkill,
+  experience,
+  setExperience,
+  company,
+  setCompany,
+  salaryOnly,
+  setSalaryOnly,
+  onReset,
   onClose,
 }: {
   region: string;
@@ -448,19 +500,20 @@ function FilterSidebar({
   setWorkplace: (value: string) => void;
   skill: string;
   setSkill: (value: string) => void;
+  experience: string;
+  setExperience: (value: string) => void;
+  company: string;
+  setCompany: (value: string) => void;
+  salaryOnly: boolean;
+  setSalaryOnly: (value: boolean) => void;
+  onReset: () => void;
   onClose?: () => void;
 }) {
-  const clear = () => {
-    setRegion("Any location");
-    setDate("Any time");
-    setWorkplace("Any arrangement");
-    setSkill("Any skill");
-  };
   return (
     <aside className="filter-sidebar">
       <div className="filter-title">
         <b><ListFilter size={17} /> Filters</b>
-        <button onClick={clear}>Reset</button>
+        <button onClick={onReset}>Reset all</button>
         {onClose && <button className="mobile-filter-close" onClick={onClose}><X size={19} /></button>}
       </div>
       <FilterGroup title="Region" options={FILTER_CONFIG.regions} selected={region} onSelect={setRegion} />
@@ -473,11 +526,24 @@ function FilterSidebar({
           {FILTER_CONFIG.skills.map((value) => <option key={value}>{value}</option>)}
         </select>
       </div>
-      <div className="filter-group collapsed"><h3>Experience level<ChevronDown size={15} /></h3></div>
-      <div className="filter-group collapsed"><h3>Salary range<ChevronDown size={15} /></h3></div>
-      <div className="filter-group collapsed"><h3>Company & industry<ChevronDown size={15} /></h3></div>
-      <label className="switch-option"><input type="checkbox" /><span /> Jobs with salary</label>
-      <label className="switch-option"><input type="checkbox" /><span /> Visa sponsorship</label>
+      <div className="filter-group">
+        <h3>Minimum experience<ChevronDown size={15} /></h3>
+        <select value={experience} onChange={(event) => setExperience(event.target.value)}>
+          <option value="Any experience">Any within 1–4 years</option>
+          {[1, 2, 3, 4].map((year) => <option key={year} value={String(year)}>Minimum {year} {year === 1 ? "year" : "years"}</option>)}
+        </select>
+      </div>
+      <div className="filter-group">
+        <h3>Company<ChevronDown size={15} /></h3>
+        <select value={company} onChange={(event) => setCompany(event.target.value)}>
+          <option value="Any company">Any company</option>
+          {COMPANIES.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+        </select>
+      </div>
+      <label className="switch-option">
+        <input type="checkbox" checked={salaryOnly} onChange={(event) => setSalaryOnly(event.target.checked)} />
+        <span /> Salary disclosed
+      </label>
       {onClose && <button className="button button-primary apply-filters" onClick={onClose}>Show matching jobs</button>}
     </aside>
   );
@@ -522,12 +588,18 @@ function JobsPage({
   saved: Set<string>;
   toggleSaved: (id: string) => void;
 }) {
+  const searchParams = useSearchParams();
   const category = CATEGORIES.find((item) => item.slug === categorySlug);
-  const [query, setQuery] = useState("");
-  const [region, setRegion] = useState(initialRegion ?? "Any location");
-  const [date, setDate] = useState("Any time");
-  const [workplace, setWorkplace] = useState("Any arrangement");
-  const [skill, setSkill] = useState("Any skill");
+  const initialRegionParam = searchParams.get("region");
+  const [query, setQuery] = useState(searchParams.get("q") ?? "");
+  const [location, setLocation] = useState(searchParams.get("location") ?? "");
+  const [region, setRegion] = useState(initialRegion ?? initialRegionParam ?? "Any location");
+  const [date, setDate] = useState(searchParams.get("date") ?? "Any time");
+  const [workplace, setWorkplace] = useState(searchParams.get("workplace") ?? "Any arrangement");
+  const [skill, setSkill] = useState(searchParams.get("skill") ?? "Any skill");
+  const [experience, setExperience] = useState(searchParams.get("experience") ?? "Any experience");
+  const [company, setCompany] = useState(searchParams.get("company") ?? "Any company");
+  const [salaryOnly, setSalaryOnly] = useState(searchParams.get("salary") === "true");
   const [sort, setSort] = useState("Most relevant");
   const [selectedId, setSelectedId] = useState(JOBS[0].id);
   const [limit, setLimit] = useState(12);
@@ -536,9 +608,13 @@ function JobsPage({
   const filtered = useMemo(() => {
     const items = JOBS.filter((job) => {
       const queryMatch = !query || `${job.title} ${job.companyName} ${job.skills.join(" ")}`.toLowerCase().includes(query.toLowerCase());
+      const locationMatch = !location || job.locationText.toLowerCase().includes(location.toLowerCase());
       const regionMatch = region === "Any location" || job.regionType === region;
       const workplaceMatch = workplace === "Any arrangement" || job.workplaceType === workplace;
       const skillMatch = skill === "Any skill" || job.skills.includes(skill);
+      const experienceMatch = experience === "Any experience" || job.experienceMinimum === Number(experience);
+      const companyMatch = company === "Any company" || job.companyId === company;
+      const salaryMatch = !salaryOnly || job.salaryDisclosed;
       const categoryMatch = !category || job.categories.includes(category.name);
       const dateMatch =
         date === "Any time" ||
@@ -547,7 +623,7 @@ function JobsPage({
         (date === "Last 7 days" && job.daysAgo <= 7) ||
         (date === "Last 30 days" && job.daysAgo <= 30) ||
         (date === "Last 45 days" && job.daysAgo <= 45);
-      return queryMatch && regionMatch && workplaceMatch && skillMatch && categoryMatch && dateMatch;
+      return queryMatch && locationMatch && regionMatch && workplaceMatch && skillMatch && experienceMatch && companyMatch && salaryMatch && categoryMatch && dateMatch;
     });
     return [...items].sort((a, b) => {
       if (sort === "Newest") return a.daysAgo - b.daysAgo;
@@ -555,18 +631,52 @@ function JobsPage({
       if (sort === "Salary: low to high") return a.salaryMinimum - b.salaryMinimum;
       return a.id.localeCompare(b.id);
     });
-  }, [query, region, date, workplace, skill, category, sort]);
+  }, [query, location, region, date, workplace, skill, experience, company, salaryOnly, category, sort]);
   const selected = filtered.find((job) => job.id === selectedId) ?? filtered[0] ?? JOBS[0];
-  const activeFilters = [region !== "Any location" && region, date !== "Any time" && date, workplace !== "Any arrangement" && workplace, skill !== "Any skill" && skill].filter(Boolean);
+  const activeFilters = [
+    query && `Search: ${query}`,
+    location && `Location: ${location}`,
+    region !== "Any location" && region,
+    date !== "Any time" && date,
+    workplace !== "Any arrangement" && workplace,
+    skill !== "Any skill" && skill,
+    experience !== "Any experience" && `Minimum ${experience} ${experience === "1" ? "year" : "years"}`,
+    company !== "Any company" && COMPANIES.find((item) => item.id === company)?.name,
+    salaryOnly && "Salary disclosed",
+  ].filter(Boolean);
+
+  const resetFilters = () => {
+    setQuery("");
+    setLocation("");
+    setRegion(initialRegion ?? "Any location");
+    setDate("Any time");
+    setWorkplace("Any arrangement");
+    setSkill("Any skill");
+    setExperience("Any experience");
+    setCompany("Any company");
+    setSalaryOnly(false);
+  };
+
+  const removeFilter = (label: string) => {
+    if (label.startsWith("Search:")) setQuery("");
+    else if (label.startsWith("Location:")) setLocation("");
+    else if (label.startsWith("Minimum")) setExperience("Any experience");
+    else if (label === "Salary disclosed") setSalaryOnly(false);
+    else if (label === region) setRegion(initialRegion ?? "Any location");
+    else if (label === date) setDate("Any time");
+    else if (label === workplace) setWorkplace("Any arrangement");
+    else if (label === skill) setSkill("Any skill");
+    else setCompany("Any company");
+  };
 
   return (
     <main className="jobs-page">
       <div className="jobs-search-strip">
-        <div className="jobs-search-inner">
+        <form className="jobs-search-inner" onSubmit={(event) => event.preventDefault()}>
           <label><Search size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search title, skill or company" /></label>
-          <label className="desktop-only"><MapPin size={17} /><input placeholder="City or location" /></label>
-          <button className="button button-primary">Search</button>
-        </div>
+          <label className="desktop-only"><MapPin size={17} /><input value={location} onChange={(event) => setLocation(event.target.value)} placeholder="City or location" /></label>
+          <button type="submit" className="button button-primary">Search</button>
+        </form>
       </div>
       <FreshnessNotice />
       <div className="jobs-mobile-controls">
@@ -580,6 +690,10 @@ function JobsPage({
           <FilterSidebar
             region={region} setRegion={setRegion} date={date} setDate={setDate}
             workplace={workplace} setWorkplace={setWorkplace} skill={skill} setSkill={setSkill}
+            experience={experience} setExperience={setExperience}
+            company={company} setCompany={setCompany}
+            salaryOnly={salaryOnly} setSalaryOnly={setSalaryOnly}
+            onReset={resetFilters}
             onClose={() => setFiltersOpen(false)}
           />
         </div>
@@ -595,7 +709,7 @@ function JobsPage({
               </select>
             </label>
           </div>
-          {activeFilters.length > 0 && <div className="active-filters">{activeFilters.map((item) => <span key={String(item)}>{item}<X size={12} /></span>)}</div>}
+          {activeFilters.length > 0 && <div className="active-filters">{activeFilters.map((item) => <button key={String(item)} onClick={() => removeFilter(String(item))}>{item}<X size={12} /></button>)}</div>}
           <div className="result-list">
             {filtered.slice(0, limit).map((job) => (
               <JobCard
@@ -671,7 +785,7 @@ function CompaniesPage() {
         <div className="company-directory-grid">
           {COMPANIES.map((company) => (
             <AppLink href={`/companies/${company.id}`} key={company.id} className="directory-company-card">
-              <span className="company-logo company-logo-large" style={{ "--logo": company.accent } as React.CSSProperties}>{company.initials}</span>
+              <CompanyMark name={company.name} initials={company.initials} logoUrl={company.logoUrl} accent={company.accent} size="large" />
               <div><h2>{company.name}</h2><p>{company.industry}</p></div>
               <span><MapPin size={15} />{company.headquarters}</span>
               <span><Users size={15} />{company.size}</span>
@@ -693,7 +807,7 @@ function CompanyPage({ id }: { id: string }) {
       <div className="page-shell">
         <AppLink href="/companies" className="back-link"><ArrowLeft size={16} /> All companies</AppLink>
         <div className="company-profile-hero">
-          <span className="company-logo company-logo-large" style={{ "--logo": company.accent } as React.CSSProperties}>{company.initials}</span>
+          <CompanyMark name={company.name} initials={company.initials} logoUrl={company.logoUrl} accent={company.accent} size="large" />
           <div><Tag tone="green">Actively hiring</Tag><h1>{company.name}</h1><p>{company.industry} · {company.headquarters}</p></div>
           <button className="button button-primary"><Bell size={16} /> Follow company</button>
         </div>
@@ -751,6 +865,118 @@ function AlertPage() {
   );
 }
 
+function SalaryInsightsPage() {
+  const salaryJobs = JOBS.filter((job) => job.salaryDisclosed);
+  const currencies = [...new Set(salaryJobs.map((job) => job.salaryCurrency))];
+  return (
+    <main className="insights-page">
+      <div className="page-shell">
+        <section className="insights-hero">
+          <div>
+            <span className="eyebrow"><BarChart3 size={14} /> Source-backed salary insights</span>
+            <h1>Understand the offer before you apply</h1>
+            <p>Salary information appears only when the original job source publishes it. Different currencies and pay periods are never combined into a misleading average.</p>
+          </div>
+          <div className="insights-hero-card">
+            <CircleDollarSign />
+            <b>{salaryJobs.length}</b>
+            <span>current jobs disclose salary</span>
+            <small>from {JOBS.length} eligible 1–4 year roles</small>
+          </div>
+        </section>
+        <div className="insight-stat-grid">
+          <div><BriefcaseBusiness /><b>{JOBS.length}</b><span>eligible active jobs</span></div>
+          <div><CircleDollarSign /><b>{salaryJobs.length}</b><span>salary-disclosed roles</span></div>
+          <div><Globe2 /><b>{currencies.length}</b><span>published currencies</span></div>
+          <div><CalendarDays /><b>45 days</b><span>maximum listing age</span></div>
+        </div>
+        <section className="salary-section">
+          <div className="section-heading">
+            <div><span className="section-kicker">Live compensation data</span><h2>Roles with published salary</h2><p>Open the source listing to confirm location, tax treatment, equity and benefits.</p></div>
+            <AppLink href="/jobs?salary=true" className="text-link">Filter salary jobs <ArrowRight size={15} /></AppLink>
+          </div>
+          {salaryJobs.length > 0 ? (
+            <div className="salary-role-list">
+              {salaryJobs.map((job) => (
+                <AppLink href={`/jobs/${job.slug}`} className="salary-role" key={job.id}>
+                  <CompanyLogo job={job} />
+                  <div><b>{job.title}</b><span>{job.companyName} · {job.locationText}</span></div>
+                  <strong>{formatSalary(job)}</strong>
+                  <small>{job.salaryPeriod} · {job.salaryCurrency}</small>
+                  <ArrowRight size={17} />
+                </AppLink>
+              ))}
+            </div>
+          ) : <div className="empty-state"><CircleDollarSign /><h3>No current source has disclosed salary</h3><p>Listings will appear here automatically after the next source refresh.</p></div>}
+        </section>
+        <section className="salary-guide">
+          <div><TrendingUp /><h3>Compare like with like</h3><p>Normalize currency, annual versus hourly pay, and expected working hours before comparing two offers.</p></div>
+          <div><Target /><h3>Ask for the full range</h3><p>Confirm base salary, bonus, equity, benefits, review cycle and whether the published range changes by location.</p></div>
+          <div><ShieldCheck /><h3>Verify at the source</h3><p>JobOrbit displays source-provided values without estimating missing compensation.</p></div>
+        </section>
+      </div>
+    </main>
+  );
+}
+
+function CareerResourcesPage() {
+  const roadmap = [
+    ["Week 1", "Position your profile", "Choose one target role, rewrite your summary around outcomes, and make your 1–4 years of experience easy to verify."],
+    ["Week 2", "Build proof of work", "Publish one focused project with architecture, automation, monitoring, trade-offs and a concise README."],
+    ["Week 3", "Prepare interviews", "Practice troubleshooting, Linux, networking, cloud, CI/CD and one system-design story from your own work."],
+    ["Week 4", "Apply with focus", "Shortlist fresh roles, tailor the top third of your resume, and track follow-ups instead of mass applying."],
+  ];
+  const checklists: Array<[string, string[]]> = [
+    ["Resume", ["Lead with measurable impact", "Match skills to the role", "Keep dates and titles factual", "Link relevant projects"]],
+    ["Portfolio", ["Show a deployment path", "Document reliability choices", "Include monitoring evidence", "Explain one failure and fix"]],
+    ["Interview", ["Prepare a 90-second introduction", "Use STAR for incident stories", "Review core commands", "Bring questions for the team"]],
+  ];
+  return (
+    <main className="resources-page">
+      <div className="page-shell">
+        <section className="resources-hero">
+          <span className="eyebrow"><BookOpen size={14} /> Career resources for 1–4 years</span>
+          <h1>Turn early experience into a stronger engineering story</h1>
+          <p>Practical preparation for DevOps, cloud, SRE, MLOps and AI roles—focused on evidence, clarity and the skills employers actually ask about.</p>
+          <div><AppLink href="/jobs" className="button button-primary">Browse matching jobs <ArrowRight size={16} /></AppLink><AppLink href="/job-alerts" className="button button-outline">Create an alert</AppLink></div>
+        </section>
+        <section className="resource-section">
+          <div className="section-heading"><div><span className="section-kicker">30-day plan</span><h2>A focused path from profile to interview</h2></div></div>
+          <div className="roadmap-grid">
+            {roadmap.map(([week, title, copy], index) => (
+              <article key={week}><span>{index + 1}</span><small>{week}</small><h3>{title}</h3><p>{copy}</p></article>
+            ))}
+          </div>
+        </section>
+        <section className="resource-section">
+          <div className="section-heading"><div><span className="section-kicker">Application toolkit</span><h2>Use these checks before you apply</h2></div></div>
+          <div className="checklist-grid">
+            {checklists.map(([title, items], index) => {
+              const Icon = [FileText, Sparkles, Target][index];
+              return <article key={title}><Icon /><h3>{title}</h3><ul>{items.map((item) => <li key={item}><Check />{item}</li>)}</ul></article>;
+            })}
+          </div>
+        </section>
+        <section className="resource-section">
+          <div className="section-heading"><div><span className="section-kicker">Live demand</span><h2>Choose a role track</h2><p>Counts below come from the current eligible catalogue.</p></div></div>
+          <div className="track-grid">
+            {CATEGORIES.map((category) => {
+              const count = JOBS.filter((job) => job.categories.includes(category.name)).length;
+              return (
+                <AppLink href={`/categories/${category.slug}`} key={category.slug}>
+                  <span style={{ "--category": category.accent } as React.CSSProperties}>{category.icon}</span>
+                  <div><b>{category.name}</b><small>{count} current {count === 1 ? "role" : "roles"}</small></div>
+                  <ArrowRight size={16} />
+                </AppLink>
+              );
+            })}
+          </div>
+        </section>
+      </div>
+    </main>
+  );
+}
+
 function AdminPage() {
   const categoryMetrics = CATEGORIES.map((category) => ({
     label: category.name,
@@ -761,7 +987,7 @@ function AdminPage() {
     ["Total jobs", String(JOBS.length), BriefcaseBusiness, "Current catalogue"],
     ["Active jobs", String(JOBS.length), Zap, "Expired excluded"],
     ["Added today", String(JOBS.filter((job) => job.daysAgo === 0).length), Sparkles, "Fresh source records"],
-    ["Categories", String(CATEGORIES.length), ShieldCheck, "100+ jobs in each"],
+    ["Experience scope", "1–4 yrs", ShieldCheck, "Senior roles excluded"],
     ["Unique sources", "1", Link2, "Public API"],
     ["Sources", "1", Globe2, "Himalayas API"],
   ] as const;
@@ -849,9 +1075,11 @@ export default function JobOrbitApp({ route = [] }: { route?: string[] }) {
   } else if (root === "post-job") {
     content = <PlaceholderPage title="Post a job" icon={<BriefcaseBusiness />} />;
   } else if (root === "salary-insights") {
-    content = <PlaceholderPage title="Salary insights" icon={<CircleDollarSign />} />;
+    content = <SalaryInsightsPage />;
+  } else if (root === "career-resources") {
+    content = <CareerResourcesPage />;
   } else {
-    content = <PlaceholderPage title="Career resources" icon={<Sparkles />} />;
+    content = <PlaceholderPage title="Page not found" icon={<Search />} />;
   }
 
   return (

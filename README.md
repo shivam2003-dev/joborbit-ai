@@ -8,11 +8,13 @@ The catalogue contains real listings from the
 
 - published within the last 45 days;
 - reported with a future expiry date at refresh time;
+- explicitly states a minimum experience requirement between 1 and 4 years;
+- excludes senior, staff, lead, principal, manager and director titles;
 - linked to its original HTTPS job and application pages; and
 - rechecked by the scheduled daily refresh before deployment.
 
-The current generated dataset has 1,089 unique jobs and at least 100 jobs in
-each supported category. Counts will change as listings are added and expire.
+Counts change as eligible listings are added, close or expire. Company logos
+come from the same source feed and fall back to initials when unavailable.
 
 ## Product surfaces
 
@@ -60,8 +62,8 @@ npm run fetch:jobs
 
 `scripts/fetch-jobs.mjs` searches the source across all supported categories,
 normalises and deduplicates records, rejects listings older than 45 days,
-rejects expired records, validates HTTPS URLs, enforces the 100-per-category
-minimum and writes `data/jobs.json`.
+rejects expired records, validates HTTPS URLs, removes higher-experience roles
+and writes `data/jobs.json`.
 
 `lib/job-data.ts` applies a second runtime freshness check so a stale generated
 file cannot expose expired or older-than-45-day listings.

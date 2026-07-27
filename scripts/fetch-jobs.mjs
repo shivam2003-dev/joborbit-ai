@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
+import { extractEligibleExperience, isRelevantDevOpsTitle } from "./job-quality.mjs";
 
 const API_URL = "https://himalayas.app/jobs/api/search";
 const TARGET_PER_CATEGORY = 110;
@@ -362,7 +363,25 @@ await runPool(Object.entries(categoryQueries));
 
 const records = [...globalJobs.values()]
   .sort((a, b) => timestampMs(b.raw.pubDate) - timestampMs(a.raw.pubDate))
-  .map((entry, index) => normalise(entry.raw, entry.categories, index));
+  .map((entry, index) => normalise(entry.raw, entry.categories, index))
+  .map((job) => {
+    const experience = extractEligibleExperience(job);
+    if (!experience) return null;
+    const categories = job.categories.filter(
+      (category) => category !== "DevOps" || isRelevantDevOpsTitle(job.title),
+    );
+    if (!categories.length) return null;
+    return {
+      ...job,
+      category: categories[0],
+      categories,
+      experienceMinimum: experience.minimum,
+      experienceMaximum: experience.maximum,
+      experienceText: experience.text,
+    };
+  })
+  .filter(Boolean)
+  .map((job, index) => ({ ...job, isFeatured: index < 6 }));
 
 const counts = Object.fromEntries(
   Object.keys(categoryQueries).map((category) => [
@@ -370,10 +389,6 @@ const counts = Object.fromEntries(
     records.filter((job) => job.categories.includes(category)).length,
   ]),
 );
-
-for (const [category, count] of Object.entries(counts)) {
-  if (count < 100) throw new Error(`${category} finished with ${count} jobs`);
-}
 
 await mkdir("data", { recursive: true });
 await writeFile(
@@ -396,5 +411,5 @@ await writeFile(
 );
 
 process.stdout.write(
-  `Fetched ${records.length} unique, current jobs. Category counts: ${JSON.stringify(counts)}\n`,
+  `Fetched ${records.length} current jobs with a stated minimum of 1–4 years. Category counts: ${JSON.stringify(counts)}\n`,
 );

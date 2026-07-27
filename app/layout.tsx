@@ -7,6 +7,8 @@ const geistSans = Geist({
   subsets: ["latin"],
 });
 
+const publicBasePath = process.env.GITHUB_PAGES === "true" ? "/joborbit-ai" : "";
+
 export const metadata: Metadata = {
   metadataBase: new URL("https://shivam2003-dev.github.io/joborbit-ai/"),
   title: {
@@ -14,10 +16,10 @@ export const metadata: Metadata = {
     template: "%s | JobOrbit AI",
   },
   description:
-    "Discover AI, DevOps, MLOps, cloud, platform and SRE opportunities across India and worldwide.",
+    "Discover current AI, DevOps, MLOps, cloud, platform and SRE opportunities for professionals with 1–4 years of experience.",
   icons: {
-    icon: "/favicon.svg",
-    shortcut: "/favicon.svg",
+    icon: `${publicBasePath}/favicon.svg`,
+    shortcut: `${publicBasePath}/favicon.svg`,
   },
 };
 
