@@ -41,3 +41,8 @@ next-env.d.ts
 /.wrangler/
 /outputs/
 /work/
+
+# This source plugin is required by vite.config.ts and must be committed even
+# when a machine-wide ignore rule excludes generic build directories.
+!build/
+!build/sites-vite-plugin.ts
