@@ -21,7 +21,23 @@ const discoveryQueries = [
   "engineer",
   "software engineer",
   "software developer",
+  "Java developer",
+  "Java software engineer",
+  "Spring Boot developer",
+  "full stack developer",
+  "full stack software engineer",
   "backend engineer",
+  "backend developer",
+  "application developer",
+  "application engineer",
+  "web developer",
+  "frontend developer",
+  "frontend engineer",
+  "React developer",
+  "TypeScript developer",
+  "Node.js developer",
+  ".NET developer",
+  "Python developer",
   "systems engineer",
   "automation engineer",
   "research engineer",
@@ -125,6 +141,8 @@ const categoryPatterns = {
     /\bcloud engineer\b|\bcloud engineering\b|\bcloud infrastructure\b|\bAWS engineer\b|\bAzure engineer\b|\bGCP engineer\b|\binfrastructure engineer\b|\bdevops engineer\b/i,
   Cybersecurity:
     /\bcyber ?security\b|\bsecurity engineer\b|\bcloud security\b|\bdevsecops\b|\bapplication security\b|\bproduct security\b|\binformation security\b|\bSOC analyst\b|\bsecurity analyst\b/i,
+  "Software Engineering":
+    /\bsoftware (?:engineer|developer|development)\b|\bfull[ -]?stack\b|\bjava\b|\bback[ -]?end (?:engineer|developer)\b|\bfront[ -]?end (?:engineer|developer)\b|\bapplication (?:engineer|developer)\b|\bweb developer\b|\bspring(?: boot)?\b|\breact(?:\.js|js)?\b|\bnode(?:\.js|js)?\b|\btypescript\b|\bpython developer\b|\b\.net developer\b/i,
 };
 
 const skillPatterns = [
@@ -139,6 +157,8 @@ const skillPatterns = [
   ["Python", /\bpython\b/i],
   ["Go", /\bgolang\b|\bgo programming\b/i],
   ["Java", /\bjava\b/i],
+  ["Spring Boot", /\bspring(?: boot)?\b/i],
+  ["React", /\breact(?:\.js|js)?\b/i],
   ["TypeScript", /\btypescript\b/i],
   ["GitHub Actions", /github actions/i],
   ["Jenkins", /\bjenkins\b/i],
@@ -638,7 +658,11 @@ async function runPool(items, worker, concurrency) {
   return results;
 }
 
-const discoveryTasks = discoveryQueries.flatMap((query) => [
+const activeDiscoveryQueries =
+  process.env.SOFTWARE_ONLY === "true"
+    ? discoveryQueries.slice(0, discoveryQueries.indexOf("systems engineer"))
+    : discoveryQueries;
+const discoveryTasks = activeDiscoveryQueries.flatMap((query) => [
   { query, country: "IN", pages: MAX_INDIA_PAGES },
   { query, country: "", pages: MAX_DISCOVERY_PAGES },
 ]);
@@ -676,16 +700,26 @@ const atsJobs = (
 ).filter(Boolean);
 
 const existing = JSON.parse(await readFile("data/jobs.json", "utf8"));
-const currentExisting = existing.jobs.filter(
-  (job) =>
-    job.isActive &&
-    timestamp(job.publishedAt) >= cutoff &&
-    timestamp(job.expiresAt) > now &&
-    job.experienceMinimum >= 1 &&
-    job.experienceMinimum <= 4 &&
-    !seniorTitlePattern.test(job.title) &&
-    !irrelevantTitlePattern.test(job.title),
-);
+const currentExisting = existing.jobs
+  .filter(
+    (job) =>
+      job.isActive &&
+      timestamp(job.publishedAt) >= cutoff &&
+      timestamp(job.expiresAt) > now &&
+      job.experienceMinimum >= 1 &&
+      job.experienceMinimum <= 4 &&
+      !seniorTitlePattern.test(job.title) &&
+      !irrelevantTitlePattern.test(job.title),
+  )
+  .map((job) => {
+    const categories = [
+      ...new Set([
+        ...job.categories,
+        ...categoriesFor(job.title, job.description),
+      ]),
+    ];
+    return { ...job, category: categories[0], categories };
+  });
 const allJobs = [
   ...new Map(
     [...currentExisting, ...atsJobs].map((job) => [

@@ -1895,21 +1895,6 @@ svg {
   padding-bottom: 80px;
 }
 
-.insights-hero {
-  padding: 54px 58px;
-  display: grid;
-  grid-template-columns: minmax(0, 1.4fr) 280px;
-  gap: 56px;
-  align-items: center;
-  overflow: hidden;
-  border: 1px solid #d9d6fe;
-  border-radius: 24px;
-  background:
-    radial-gradient(circle at 90% 20%, rgba(99, 91, 255, .22), transparent 30%),
-    linear-gradient(135deg, var(--surface), var(--primary-soft));
-}
-
-.insights-hero h1,
 .resources-hero h1 {
   margin: 18px 0 12px;
   font-size: clamp(38px, 5vw, 60px);
@@ -1917,7 +1902,6 @@ svg {
   letter-spacing: -.05em;
 }
 
-.insights-hero p,
 .resources-hero > p {
   max-width: 690px;
   margin: 0;
@@ -1926,75 +1910,23 @@ svg {
   line-height: 1.7;
 }
 
-.insights-hero-card {
-  min-height: 220px;
-  padding: 28px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-  border: 1px solid rgba(255, 255, 255, .7);
-  border-radius: 20px;
-  background: rgba(255, 255, 255, .72);
-  box-shadow: var(--shadow);
+.salary-page-heading {
+  max-width: 760px;
+  padding: 12px 0 26px;
 }
 
-[data-theme="dark"] .insights-hero-card {
-  background: rgba(20, 24, 40, .82);
+.salary-page-heading h1 {
+  margin: 9px 0 10px;
+  font-size: clamp(34px, 4vw, 48px);
+  line-height: 1.08;
+  letter-spacing: -.04em;
 }
 
-.insights-hero-card > svg {
-  width: 34px;
-  height: 34px;
-  color: var(--primary);
-}
-
-.insights-hero-card b {
-  margin-top: 15px;
-  font-size: 46px;
-  line-height: 1;
-}
-
-.insights-hero-card span {
-  margin-top: 8px;
-  font-weight: 680;
-}
-
-.insights-hero-card small {
-  margin-top: 4px;
+.salary-page-heading p {
+  margin: 0;
   color: var(--muted);
-}
-
-.insight-stat-grid {
-  margin: 18px 0 58px;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-}
-
-.insight-stat-grid > div {
-  padding: 20px;
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 2px 12px;
-  align-items: center;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: var(--surface);
-}
-
-.insight-stat-grid svg {
-  grid-row: span 2;
-  color: var(--primary);
-}
-
-.insight-stat-grid b {
-  font-size: 20px;
-}
-
-.insight-stat-grid span {
-  color: var(--muted);
-  font-size: 10px;
+  font-size: 15px;
+  line-height: 1.65;
 }
 
 .salary-section {
@@ -2787,13 +2719,6 @@ svg {
   .admin-grid {
     grid-template-columns: 1fr;
   }
-  .insights-hero {
-    grid-template-columns: 1fr;
-  }
-  .insights-hero-card {
-    min-height: 170px;
-  }
-  .insight-stat-grid,
   .roadmap-grid,
   .public-resource-grid {
     grid-template-columns: 1fr 1fr;
@@ -3008,16 +2933,13 @@ svg {
   .bar-row {
     grid-template-columns: 90px 1fr 22px;
   }
-  .insights-hero,
   .resources-hero {
     padding: 34px 22px;
     border-radius: 18px;
   }
-  .insights-hero h1,
   .resources-hero h1 {
     font-size: 38px;
   }
-  .insight-stat-grid,
   .roadmap-grid,
   .checklist-grid,
   .salary-guide,
@@ -3797,7 +3719,6 @@ b {
   font-size: 14px;
 }
 
-.insight-stat-grid span,
 .salary-role div span,
 .salary-role small,
 .fx-note,

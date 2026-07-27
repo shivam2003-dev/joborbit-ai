@@ -3,13 +3,11 @@
 import {
   ArrowLeft,
   ArrowRight,
-  BarChart3,
   Bell,
   Bookmark,
   BookOpen,
   BriefcaseBusiness,
   Building2,
-  CalendarDays,
   Check,
   ChevronDown,
   CircleDollarSign,
@@ -1222,33 +1220,18 @@ function AlertPage() {
 
 function SalaryInsightsPage() {
   const salaryJobs = JOBS.filter((job) => job.salaryDisclosed);
-  const currencies = [...new Set(salaryJobs.map((job) => job.salaryCurrency))];
   const fx = JOB_DATA_META.exchangeRates;
   return (
     <main className="insights-page">
       <div className="page-shell">
-        <section className="insights-hero">
-          <div>
-            <span className="eyebrow"><BarChart3 size={14} /> Salary insights in Indian rupees</span>
-            <h1>Compare published pay in ₹ INR</h1>
-            <p>Every range is converted to Indian rupees for quick comparison while the original source currency remains visible. Missing salaries are never estimated.</p>
-          </div>
-          <div className="insights-hero-card">
-            <CircleDollarSign />
-            <b>₹ INR</b>
-            <span>{salaryJobs.length} current salary ranges</span>
-            <small>FX reference date {fx.date}</small>
-          </div>
-        </section>
-        <div className="insight-stat-grid">
-          <div><BriefcaseBusiness /><b>{JOBS.length}</b><span>eligible active jobs</span></div>
-          <div><CircleDollarSign /><b>{salaryJobs.length}</b><span>salary-disclosed roles</span></div>
-          <div><Globe2 /><b>{currencies.length}</b><span>source currencies converted</span></div>
-          <div><CalendarDays /><b>45 days</b><span>maximum listing age</span></div>
-        </div>
+        <header className="salary-page-heading">
+          <span className="section-kicker">Salary intelligence</span>
+          <h1>Salary ranges in Indian rupees</h1>
+          <p>Compare current, source-published compensation in INR. Original currencies remain visible and missing salaries are never estimated.</p>
+        </header>
         <section className="salary-section">
           <div className="section-heading">
-            <div><span className="section-kicker">Live compensation data</span><h2>Published ranges converted to INR</h2><p>Open the source listing to confirm location, tax treatment, equity and benefits.</p></div>
+            <div><span className="section-kicker">Live compensation data</span><h2>Current published salary ranges</h2><p>Open the source listing to confirm location, tax treatment, equity and benefits.</p></div>
             <AppLink href="/jobs?salary=true" className="text-link">Filter salary jobs <ArrowRight size={15} /></AppLink>
           </div>
           {salaryJobs.length > 0 ? (

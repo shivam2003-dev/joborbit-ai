@@ -13,7 +13,8 @@ export type JobCategory =
   | "Machine Learning"
   | "Generative AI"
   | "Data Science"
-  | "Cybersecurity";
+  | "Cybersecurity"
+  | "Software Engineering";
 
 export interface Job {
   id: string;
@@ -142,6 +143,10 @@ export const FILTER_CONFIG = {
     "Prometheus",
     "Grafana",
     "Linux",
+    "Java",
+    "Spring Boot",
+    "React",
+    "TypeScript",
     "PyTorch",
     "TensorFlow",
     "LLM",
@@ -160,6 +165,7 @@ export const CATEGORIES: Category[] = [
   { slug: "platform-engineering", name: "Platform Engineering", description: "Build developer platforms", icon: "PE", accent: "#0f766e" },
   { slug: "cloud-engineering", name: "Cloud Engineering", description: "Design modern cloud stacks", icon: "☁", accent: "#0284c7" },
   { slug: "cybersecurity", name: "Cybersecurity", description: "Protect infrastructure", icon: "CS", accent: "#9333ea" },
+  { slug: "software-engineering", name: "Software Engineering", description: "Build Java and full-stack products", icon: "SE", accent: "#c2410c" },
 ];
 
 export const JOB_DATA_META = {

@@ -75,6 +75,22 @@ const categoryQueries = {
     "DevSecOps",
     "application security",
   ],
+  "Software Engineering": [
+    "Java developer",
+    "Java software engineer",
+    "full stack developer",
+    "full stack software engineer",
+    "software developer",
+    "backend engineer",
+    "application developer",
+    "web developer",
+    "frontend engineer",
+    "React developer",
+    "TypeScript developer",
+    "Node.js developer",
+    ".NET developer",
+    "Python developer",
+  ],
 };
 
 const skillPatterns = [
@@ -89,6 +105,8 @@ const skillPatterns = [
   ["Python", /\bpython\b/i],
   ["Go", /\bgolang\b|\bgo programming\b/i],
   ["Java", /\bjava\b/i],
+  ["Spring Boot", /\bspring(?: boot)?\b/i],
+  ["React", /\breact(?:\.js|js)?\b/i],
   ["TypeScript", /\btypescript\b/i],
   ["GitHub Actions", /github actions/i],
   ["Jenkins", /\bjenkins\b/i],
