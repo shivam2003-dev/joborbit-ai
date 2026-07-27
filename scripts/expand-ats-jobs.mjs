@@ -193,8 +193,9 @@ function decodeEntities(value = "") {
 }
 
 function stripHtml(value = "") {
+  const decoded = decodeEntities(value);
   return decodeEntities(
-    value
+    decoded
       .replace(/<script[\s\S]*?<\/script>/gi, " ")
       .replace(/<style[\s\S]*?<\/style>/gi, " ")
       .replace(/<br\s*\/?>/gi, "\n")

@@ -153,6 +153,28 @@ const fetchedAtLabel = new Intl.DateTimeFormat("en", {
   timeZoneName: "short",
 }).format(new Date(JOB_DATA_META.fetchedAt));
 
+function cleanJobText(value: string) {
+  let text = value;
+  for (let pass = 0; pass < 2; pass += 1) {
+    text = text
+      .replaceAll("&lt;", "<")
+      .replaceAll("&gt;", ">")
+      .replaceAll("&amp;", "&")
+      .replaceAll("&quot;", '"')
+      .replaceAll("&#39;", "'")
+      .replaceAll("&nbsp;", " ");
+  }
+  return text
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(?:p|div|h[1-6]|li|ul|ol|section)>/gi, "\n")
+    .replace(/<li[^>]*>/gi, "• ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\n[ \t]+/g, "\n")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 function FreshnessNotice() {
   return (
     <div className="demo-notice">
@@ -837,7 +859,7 @@ function JobPreview({ job, saved, onSave }: { job: Job; saved: boolean; onSave: 
         <button className="button button-outline" onClick={onSave}><Bookmark size={16} fill={saved ? "currentColor" : "none"} />{saved ? "Saved" : "Save job"}</button>
       </div>
       <div className="preview-scroll">
-        <section><h3>About the role</h3><p>{job.description}</p></section>
+        <section><h3>About the role</h3><p>{cleanJobText(job.description)}</p></section>
         {job.responsibilities.length > 0 && <section><h3>Role highlights from source</h3><ul>{job.responsibilities.map((item) => <li key={item}>{item}</li>)}</ul></section>}
         <section><h3>Skills required</h3><div className="skill-row">{job.skills.map((skill) => <Tag key={skill}>{skill}</Tag>)}</div></section>
         <section className="source-box"><h3><ShieldCheck size={17} /> Source & freshness</h3><p>Imported from {job.sourceName}. The feed reported this listing as active, its expiry date is in the future, and the application button opens the source-provided URL.</p><span>Checked {new Date(job.lastVerifiedAt).toISOString().slice(0, 10)} · Expires {new Date(job.expiresAt).toISOString().slice(0, 10)}</span></section>
@@ -1080,7 +1102,7 @@ function FullJobPage({ job, saved, toggleSaved }: { job: Job; saved: boolean; to
             <div className="job-meta detail-meta">
               <span><MapPin />{job.locationText}</span><span><BriefcaseBusiness />{job.workplaceType} · {job.employmentType}</span><span><Users />{job.experienceText}</span><span><CircleDollarSign />{formatSalary(job)}</span>
             </div>
-            <section><h2>Job overview</h2><p>{job.description}</p></section>
+            <section><h2>Job overview</h2><p>{cleanJobText(job.description)}</p></section>
             {job.responsibilities.length > 0 && <section><h2>Role highlights from the source</h2><ul>{job.responsibilities.map((item) => <li key={item}>{item}</li>)}</ul></section>}
             {job.qualifications.length > 0 && <section><h2>Required qualifications</h2><ul>{job.qualifications.map((item) => <li key={item}>{item}</li>)}</ul></section>}
             {job.preferredQualifications.length > 0 && <section><h2>Preferred qualifications</h2><ul>{job.preferredQualifications.map((item) => <li key={item}>{item}</li>)}</ul></section>}
