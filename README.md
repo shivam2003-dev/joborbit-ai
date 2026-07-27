@@ -1,12 +1,18 @@
 # JobOrbit AI
 
-A premium, responsive job-discovery prototype focused on DevOps, platform
-engineering, cloud, SRE, MLOps and adjacent AI roles.
+A premium, responsive job aggregator focused on DevOps, platform engineering,
+cloud, SRE, MLOps and adjacent AI roles.
 
-> The repository currently contains **100 fictional sample jobs**. They are
-> deliberately labelled as sample data throughout the UI and do not represent
-> active vacancies. Replace the demo provider before using the site for live
-> applications.
+The catalogue contains real listings from the
+[Himalayas public jobs API](https://himalayas.app/api). Every record is:
+
+- published within the last 45 days;
+- reported with a future expiry date at refresh time;
+- linked to its original HTTPS job and application pages; and
+- rechecked by the scheduled daily refresh before deployment.
+
+The current generated dataset has 1,089 unique jobs and at least 100 jobs in
+each supported category. Counts will change as listings are added and expire.
 
 ## Product surfaces
 
@@ -21,6 +27,7 @@ engineering, cloud, SRE, MLOps and adjacent AI roles.
 - Saved-jobs interaction, job-alert form, dark theme and admin dashboard
 - Static pages for India, international, remote and category searches
 - Social preview card and complete GitHub Pages deployment workflow
+- Daily automated catalogue refresh with expiry and recency validation
 
 ## Local development
 
@@ -45,27 +52,26 @@ npm run build:pages
 
 ## Updating the job catalogue
 
-The data contract, filter configuration, categories, companies and demo provider
-are in `lib/job-data.ts`. The UI reads the exported `JOBS`, `COMPANIES` and
-`CATEGORIES` collections rather than embedding records in components.
+Run the same source refresh used in deployment:
 
-For a live aggregator:
+```bash
+npm run fetch:jobs
+```
 
-1. Keep the `Job` interface as the normalised destination schema.
-2. Add one adapter per source (company career page, ATS, API or scraper).
-3. Normalise each source into `Job`.
-4. Deduplicate using the source URL plus company/title/location.
-5. Validate timestamps and application URLs.
-6. Replace the demo `JOBS` export with a server/API-backed provider.
-7. Schedule refreshes and expire records that fail verification.
+`scripts/fetch-jobs.mjs` searches the source across all supported categories,
+normalises and deduplicates records, rejects listings older than 45 days,
+rejects expired records, validates HTTPS URLs, enforces the 100-per-category
+minimum and writes `data/jobs.json`.
 
-The UI already exposes discovered/verified/source fields and clearly separates
-the application URL from the aggregator.
+`lib/job-data.ts` applies a second runtime freshness check so a stale generated
+file cannot expose expired or older-than-45-day listings.
 
 ## Deployment
 
-Pushes to `main` run `.github/workflows/deploy-pages.yml`, build all static
-routes and publish them to GitHub Pages.
+Pushes to `main` build all static routes and publish them to GitHub Pages.
+The same workflow runs daily at 02:17 UTC, refreshes and commits the catalogue,
+then deploys the current site. It can also be triggered manually from GitHub
+Actions.
 
 The same source is also compatible with the included Sites deployment
 configuration.

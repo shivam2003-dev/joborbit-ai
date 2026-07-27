@@ -17,7 +17,7 @@ export async function generateMetadata({ params }: JobPageProps): Promise<Metada
   const job = getJobBySlug(slug);
   if (!job) return {};
   const title = `${job.title} at ${job.companyName}`;
-  const description = `Explore this sample ${job.title} role in ${job.locationText}, including skills, salary, source details and application information.`;
+  const description = `Explore this active ${job.title} role in ${job.locationText}, including skills, salary, source details and the original application link.`;
   return {
     title,
     description,

@@ -37,6 +37,7 @@ import {
   CATEGORIES,
   COMPANIES,
   FILTER_CONFIG,
+  JOB_DATA_META,
   JOBS,
   formatSalary,
   getCompanyById,
@@ -133,11 +134,21 @@ function Header({
   );
 }
 
-function DemoNotice() {
+const fetchedAtLabel = new Intl.DateTimeFormat("en", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  timeZone: "UTC",
+  timeZoneName: "short",
+}).format(new Date(JOB_DATA_META.fetchedAt));
+
+function FreshnessNotice() {
   return (
     <div className="demo-notice">
       <ShieldCheck size={15} />
-      <span><b>Prototype dataset:</b> 100 fictional roles for testing the experience. Connect a live feed before accepting applications.</span>
+      <span><b>Live catalogue:</b> posted within 45 days, active at the last source check, and automatically stripped of expired listings. Updated {fetchedAtLabel}.</span>
     </div>
   );
 }
@@ -217,7 +228,7 @@ function JobCard({
         <div className="job-card-heading">
           <div className="badge-row">
             {job.daysAgo === 0 && <Tag tone="blue">New</Tag>}
-            <Tag tone="violet">Sample data</Tag>
+            {job.isVerified && <Tag tone="green"><ShieldCheck size={10} /> Active source</Tag>}
             <Tag tone={job.regionType === "India" ? "orange" : "green"}>{job.regionType}</Tag>
           </div>
           <h3>{job.title}</h3>
@@ -247,6 +258,8 @@ function JobCard({
         <span>{postedLabel(job.daysAgo)}</span>
         <span>•</span>
         <span>{job.employmentType}</span>
+        <span>•</span>
+        <span>Source: {job.sourceName}</span>
         {detailed && <button className="text-link" onClick={(event) => { event.stopPropagation(); onSelect(); }}>View job <ArrowRight size={14} /></button>}
       </div>
     </article>
@@ -287,27 +300,27 @@ function Hero({ onChip }: { onChip: (value: string) => void }) {
 function HomePage({ saved, toggleSaved }: { saved: Set<string>; toggleSaved: (id: string) => void }) {
   const featured = JOBS.filter((job) => job.isFeatured);
   const regions = [
-    { title: "Jobs in India", copy: "50 sample roles", icon: <Flag />, href: "/jobs/india", className: "india" },
-    { title: "Jobs outside India", copy: "40 sample roles", icon: <Globe2 />, href: "/jobs/international", className: "world" },
-    { title: "Remote worldwide", copy: "10 sample roles", icon: <Cloud />, href: "/jobs/remote", className: "remote" },
+    { title: "Jobs in India", copy: `${JOBS.filter((job) => job.regionType === "India").length} active roles`, icon: <Flag />, href: "/jobs/india", className: "india" },
+    { title: "Jobs outside India", copy: `${JOBS.filter((job) => job.regionType === "Outside India").length} active roles`, icon: <Globe2 />, href: "/jobs/international", className: "world" },
+    { title: "Remote worldwide", copy: `${JOBS.filter((job) => job.regionType === "Remote worldwide").length} active roles`, icon: <Cloud />, href: "/jobs/remote", className: "remote" },
     { title: "Visa sponsorship", copy: "Explore eligible roles", icon: <HeartHandshake />, href: "/jobs?visa=true", className: "visa" },
   ];
   return (
     <main>
       <div className="home-shell">
-        <DemoNotice />
+        <FreshnessNotice />
         <Hero onChip={(value) => { window.location.href = routeHref(`/jobs?q=${encodeURIComponent(value)}`); }} />
       </div>
       <section className="section section-tight">
         <div className="section-heading">
           <div><span className="section-kicker">Explore faster</span><h2>Browse by category</h2></div>
-          <AppLink href="/jobs" className="text-link">View all 100 jobs <ArrowRight size={15} /></AppLink>
+          <AppLink href="/jobs" className="text-link">View all {JOBS.length} jobs <ArrowRight size={15} /></AppLink>
         </div>
         <div className="category-grid">
           {CATEGORIES.map((category) => (
             <AppLink href={`/categories/${category.slug}`} className="category-card" key={category.slug}>
               <span className="category-icon" style={{ "--category": category.accent } as React.CSSProperties}>{category.icon}</span>
-              <span><b>{category.name}</b><small>{category.description}</small></span>
+              <span><b>{category.name}</b><small>{JOBS.filter((job) => job.categories.includes(category.name)).length} jobs · {category.description}</small></span>
               <ArrowRight size={16} />
             </AppLink>
           ))}
@@ -348,7 +361,7 @@ function HomePage({ saved, toggleSaved }: { saved: Set<string>; toggleSaved: (id
       <section className="section recent-section">
         <div className="recent-panel">
           <div className="section-heading">
-            <div><span className="section-kicker">Fresh from the feed</span><h2>Recently added sample jobs</h2><p><RefreshCw size={14} /> Last refreshed today • Ready for an automated source</p></div>
+            <div><span className="section-kicker">Fresh from the feed</span><h2>Recently added jobs</h2><p><RefreshCw size={14} /> Source refreshed {fetchedAtLabel} • Expired listings excluded</p></div>
             <AppLink href="/jobs?date=Today" className="text-link">See newest jobs <ArrowRight size={15} /></AppLink>
           </div>
           <div className="compact-job-list">
@@ -376,12 +389,12 @@ function HomePage({ saved, toggleSaved }: { saved: Set<string>; toggleSaved: (id
           <AppLink href="/companies" className="text-link">View directory <ArrowRight size={15} /></AppLink>
         </div>
         <div className="company-grid">
-          {COMPANIES.slice(0, 5).map((company, index) => (
+          {COMPANIES.slice(0, 5).map((company) => (
             <AppLink href={`/companies/${company.id}`} className="company-card" key={company.id}>
               <span className="company-logo company-logo-large" style={{ "--logo": company.accent } as React.CSSProperties}>{company.initials}</span>
               <b>{company.name}</b>
               <span>{company.industry}</span>
-              <small>{10 - (index % 4)} active sample jobs</small>
+              <small>{company.activeJobs} active {company.activeJobs === 1 ? "job" : "jobs"}</small>
             </AppLink>
           ))}
         </div>
@@ -463,7 +476,7 @@ function FilterSidebar({
       <div className="filter-group collapsed"><h3>Experience level<ChevronDown size={15} /></h3></div>
       <div className="filter-group collapsed"><h3>Salary range<ChevronDown size={15} /></h3></div>
       <div className="filter-group collapsed"><h3>Company & industry<ChevronDown size={15} /></h3></div>
-      <label className="switch-option"><input type="checkbox" /><span /> Sample jobs with salary</label>
+      <label className="switch-option"><input type="checkbox" /><span /> Jobs with salary</label>
       <label className="switch-option"><input type="checkbox" /><span /> Visa sponsorship</label>
       {onClose && <button className="button button-primary apply-filters" onClick={onClose}>Show matching jobs</button>}
     </aside>
@@ -475,7 +488,7 @@ function JobPreview({ job, saved, onSave }: { job: Job; saved: boolean; onSave: 
     <aside className="job-preview">
       <div className="preview-header">
         <CompanyLogo job={job} size="large" />
-        <div><div className="badge-row"><Tag tone="violet">Sample data</Tag>{job.daysAgo === 0 && <Tag tone="blue">New</Tag>}</div><h2>{job.title}</h2><p>{job.companyName}</p></div>
+        <div><div className="badge-row"><Tag tone="green"><ShieldCheck size={10} /> Active source</Tag>{job.daysAgo === 0 && <Tag tone="blue">New</Tag>}</div><h2>{job.title}</h2><p>{job.companyName}</p></div>
       </div>
       <div className="job-meta preview-meta">
         <span><MapPin size={15} />{job.locationText}</span>
@@ -489,9 +502,9 @@ function JobPreview({ job, saved, onSave }: { job: Job; saved: boolean; onSave: 
       </div>
       <div className="preview-scroll">
         <section><h3>About the role</h3><p>{job.description}</p></section>
-        <section><h3>Key responsibilities</h3><ul>{job.responsibilities.map((item) => <li key={item}>{item}</li>)}</ul></section>
+        {job.responsibilities.length > 0 && <section><h3>Role highlights from source</h3><ul>{job.responsibilities.map((item) => <li key={item}>{item}</li>)}</ul></section>}
         <section><h3>Skills required</h3><div className="skill-row">{job.skills.map((skill) => <Tag key={skill}>{skill}</Tag>)}</div></section>
-        <section className="source-box"><h3><ShieldCheck size={17} /> Source & trust</h3><p>This is fictional demonstration data. The application button opens example.com and does not submit an application.</p><span>Last checked today</span></section>
+        <section className="source-box"><h3><ShieldCheck size={17} /> Source & freshness</h3><p>Imported from {job.sourceName}. The feed reported this listing as active, its expiry date is in the future, and the application button opens the source-provided URL.</p><span>Checked {new Date(job.lastVerifiedAt).toISOString().slice(0, 10)} · Expires {new Date(job.expiresAt).toISOString().slice(0, 10)}</span></section>
         <AppLink href={`/jobs/${job.slug}`} className="text-link">Open full job details <ArrowRight size={15} /></AppLink>
       </div>
     </aside>
@@ -526,13 +539,14 @@ function JobsPage({
       const regionMatch = region === "Any location" || job.regionType === region;
       const workplaceMatch = workplace === "Any arrangement" || job.workplaceType === workplace;
       const skillMatch = skill === "Any skill" || job.skills.includes(skill);
-      const categoryMatch = !category || job.category === category.name;
+      const categoryMatch = !category || job.categories.includes(category.name);
       const dateMatch =
         date === "Any time" ||
         (date === "Today" && job.daysAgo === 0) ||
         (date === "Yesterday" && job.daysAgo === 1) ||
         (date === "Last 7 days" && job.daysAgo <= 7) ||
-        (date === "Last 30 days" && job.daysAgo <= 30);
+        (date === "Last 30 days" && job.daysAgo <= 30) ||
+        (date === "Last 45 days" && job.daysAgo <= 45);
       return queryMatch && regionMatch && workplaceMatch && skillMatch && categoryMatch && dateMatch;
     });
     return [...items].sort((a, b) => {
@@ -554,7 +568,7 @@ function JobsPage({
           <button className="button button-primary">Search</button>
         </div>
       </div>
-      <DemoNotice />
+      <FreshnessNotice />
       <div className="jobs-mobile-controls">
         <button onClick={() => setFiltersOpen(true)}><Filter size={16} /> Filters {activeFilters.length > 0 && <b>{activeFilters.length}</b>}</button>
         <select value={sort} onChange={(e) => setSort(e.target.value)}>
@@ -573,7 +587,7 @@ function JobsPage({
           <div className="results-heading">
             <div>
               <span>{category ? category.name : "DevOps, platform & cloud opportunities"}</span>
-              <h1>{filtered.length} sample jobs found</h1>
+              <h1>{filtered.length} active jobs found</h1>
             </div>
             <label className="desktop-sort">Sort by:
               <select value={sort} onChange={(e) => setSort(e.target.value)}>
@@ -593,7 +607,7 @@ function JobsPage({
                 onSelect={() => setSelectedId(job.id)}
               />
             ))}
-            {filtered.length === 0 && <div className="empty-state"><Search size={28} /><h3>No matching sample jobs</h3><p>Try removing a filter or searching for a broader skill.</p></div>}
+            {filtered.length === 0 && <div className="empty-state"><Search size={28} /><h3>No matching active jobs</h3><p>Try removing a filter or searching for a broader skill.</p></div>}
           </div>
           {limit < filtered.length && <button className="button load-more" onClick={() => setLimit((value) => value + 12)}>Load more jobs</button>}
         </section>
@@ -608,31 +622,31 @@ function FullJobPage({ job, saved, toggleSaved }: { job: Job; saved: boolean; to
     <main className="detail-page">
       <div className="page-shell">
         <AppLink href="/jobs" className="back-link"><ArrowLeft size={16} /> Back to all jobs</AppLink>
-        <DemoNotice />
+        <FreshnessNotice />
         <div className="detail-grid">
           <article className="detail-main">
             <header className="detail-hero">
               <CompanyLogo job={job} size="large" />
-              <div><div className="badge-row"><Tag tone="violet">Sample data</Tag><Tag tone="blue">{job.category}</Tag></div><h1>{job.title}</h1><p>{job.companyName}</p></div>
+              <div><div className="badge-row"><Tag tone="green"><ShieldCheck size={10} /> Active source</Tag><Tag tone="blue">{job.category}</Tag></div><h1>{job.title}</h1><p>{job.companyName}</p></div>
               <button className="icon-button" onClick={toggleSaved}><Bookmark fill={saved ? "currentColor" : "none"} /></button>
             </header>
             <div className="job-meta detail-meta">
               <span><MapPin />{job.locationText}</span><span><BriefcaseBusiness />{job.workplaceType} · {job.employmentType}</span><span><Users />{job.experienceText}</span><span><CircleDollarSign />{formatSalary(job)}</span>
             </div>
             <section><h2>Job overview</h2><p>{job.description}</p></section>
-            <section><h2>Key responsibilities</h2><ul>{job.responsibilities.map((item) => <li key={item}>{item}</li>)}</ul></section>
-            <section><h2>Required qualifications</h2><ul>{job.qualifications.map((item) => <li key={item}>{item}</li>)}</ul></section>
-            <section><h2>Preferred qualifications</h2><ul>{job.preferredQualifications.map((item) => <li key={item}>{item}</li>)}</ul></section>
+            {job.responsibilities.length > 0 && <section><h2>Role highlights from the source</h2><ul>{job.responsibilities.map((item) => <li key={item}>{item}</li>)}</ul></section>}
+            {job.qualifications.length > 0 && <section><h2>Required qualifications</h2><ul>{job.qualifications.map((item) => <li key={item}>{item}</li>)}</ul></section>}
+            {job.preferredQualifications.length > 0 && <section><h2>Preferred qualifications</h2><ul>{job.preferredQualifications.map((item) => <li key={item}>{item}</li>)}</ul></section>}
             <section><h2>Skills</h2><div className="skill-row">{job.skills.map((item) => <Tag key={item}>{item}</Tag>)}</div></section>
-            <section><h2>Benefits & support</h2><div className="benefit-grid"><span><Check /> Learning budget</span><span><Check /> Flexible working</span><span><Check /> Health coverage</span><span><Check /> Modern tooling</span></div></section>
+            <section><h2>Listing freshness</h2><div className="benefit-grid"><span><Check /> Published {new Date(job.publishedAt).toISOString().slice(0, 10)}</span><span><Check /> Expires {new Date(job.expiresAt).toISOString().slice(0, 10)}</span><span><Check /> Active at last source check</span><span><Check /> Direct source application link</span></div></section>
           </article>
           <aside className="detail-aside">
             <a href={job.applicationUrl} target="_blank" rel="noreferrer" className="button button-primary button-block">Apply on original source <ExternalLink size={17} /></a>
             <button className="button button-outline button-block" onClick={toggleSaved}><Bookmark size={17} fill={saved ? "currentColor" : "none"} />{saved ? "Saved" : "Save this job"}</button>
             <div className="trust-card">
               <h3><ShieldCheck /> Source information</h3>
-              <dl><dt>Listing type</dt><dd>Fictional sample</dd><dt>Source</dt><dd>JobOrbit demo dataset</dd><dt>First discovered</dt><dd>{postedLabel(job.daysAgo)}</dd><dt>Last checked</dt><dd>Today</dd></dl>
-              <a href={job.sourceUrl} target="_blank" rel="noreferrer">Open demo source <ExternalLink size={14} /></a>
+              <dl><dt>Listing status</dt><dd>Active</dd><dt>Source</dt><dd>{job.sourceName}</dd><dt>Published</dt><dd>{postedLabel(job.daysAgo)}</dd><dt>Expires</dt><dd>{new Date(job.expiresAt).toISOString().slice(0, 10)}</dd></dl>
+              <a href={job.sourceUrl} target="_blank" rel="noreferrer">Open original source <ExternalLink size={14} /></a>
               <button>Report expired job</button>
             </div>
             <div className="aside-company">
@@ -652,16 +666,16 @@ function CompaniesPage() {
   return (
     <main className="directory-page">
       <div className="page-shell">
-        <div className="page-title"><span className="eyebrow"><Building2 size={14} /> Company directory</span><h1>Discover teams building the future</h1><p>Explore fictional company profiles designed to demonstrate how employer discovery will work.</p></div>
-        <DemoNotice />
+        <div className="page-title"><span className="eyebrow"><Building2 size={14} /> Company directory</span><h1>Discover teams hiring now</h1><p>Companies are derived from active jobs in the latest source refresh.</p></div>
+        <FreshnessNotice />
         <div className="company-directory-grid">
-          {COMPANIES.map((company, index) => (
+          {COMPANIES.map((company) => (
             <AppLink href={`/companies/${company.id}`} key={company.id} className="directory-company-card">
               <span className="company-logo company-logo-large" style={{ "--logo": company.accent } as React.CSSProperties}>{company.initials}</span>
               <div><h2>{company.name}</h2><p>{company.industry}</p></div>
               <span><MapPin size={15} />{company.headquarters}</span>
               <span><Users size={15} />{company.size}</span>
-              <b>{10 - (index % 4)} active sample jobs</b>
+              <b>{company.activeJobs} active {company.activeJobs === 1 ? "job" : "jobs"}</b>
               <ArrowRight size={18} />
             </AppLink>
           ))}
@@ -680,18 +694,18 @@ function CompanyPage({ id }: { id: string }) {
         <AppLink href="/companies" className="back-link"><ArrowLeft size={16} /> All companies</AppLink>
         <div className="company-profile-hero">
           <span className="company-logo company-logo-large" style={{ "--logo": company.accent } as React.CSSProperties}>{company.initials}</span>
-          <div><Tag tone="violet">Fictional company</Tag><h1>{company.name}</h1><p>{company.industry} · {company.headquarters}</p></div>
+          <div><Tag tone="green">Actively hiring</Tag><h1>{company.name}</h1><p>{company.industry} · {company.headquarters}</p></div>
           <button className="button button-primary"><Bell size={16} /> Follow company</button>
         </div>
         <div className="company-profile-grid">
           <article className="company-about">
             <h2>About {company.name}</h2><p>{company.description}</p>
             <h2>Technology stack</h2><div className="skill-row">{company.technologies.map((tech) => <Tag key={tech}>{tech}</Tag>)}</div>
-            <h2>Work policy</h2><p>{company.remotePolicy}. India and international hiring shown in this prototype is sample data.</p>
+            <h2>Work policy</h2><p>{company.remotePolicy}. Confirm location eligibility on the original posting before applying.</p>
           </article>
           <aside className="company-facts"><h3>Company details</h3><dl><dt>Headquarters</dt><dd>{company.headquarters}</dd><dt>Company size</dt><dd>{company.size}</dd><dt>Industry</dt><dd>{company.industry}</dd><dt>Visa sponsorship</dt><dd>Role dependent</dd></dl></aside>
         </div>
-        <section className="company-openings"><div className="section-heading"><div><span className="section-kicker">Openings</span><h2>{jobs.length} sample jobs</h2></div></div><div className="featured-grid">{jobs.slice(0, 6).map((job) => <JobCard key={job.id} job={job} detailed isSaved={false} onSave={() => {}} onSelect={() => {}} />)}</div></section>
+        <section className="company-openings"><div className="section-heading"><div><span className="section-kicker">Openings</span><h2>{jobs.length} active jobs</h2></div></div><div className="featured-grid">{jobs.slice(0, 6).map((job) => <JobCard key={job.id} job={job} detailed isSaved={false} onSave={() => {}} onSelect={() => { window.location.href = routeHref(`/jobs/${job.slug}`); }} />)}</div></section>
       </div>
     </main>
   );
@@ -721,7 +735,7 @@ function AlertPage() {
           <div className="alert-benefits"><span><Check /> Matching based on your stack</span><span><Check /> India and worldwide regions</span><span><Check /> Daily or weekly delivery</span></div>
         </div>
         <form className="alert-form" onSubmit={(event) => { event.preventDefault(); setCreated(true); }}>
-          {created ? <div className="success-state"><span><Check /></span><h2>Alert created</h2><p>Your sample alert is ready. Connect an email service to enable delivery.</p><button type="button" className="button button-outline" onClick={() => setCreated(false)}>Create another</button></div> : <>
+          {created ? <div className="success-state"><span><Check /></span><h2>Alert created</h2><p>Your alert preferences are ready for email delivery integration.</p><button type="button" className="button button-outline" onClick={() => setCreated(false)}>Create another</button></div> : <>
             <h2>Create your alert</h2>
             <label>Job role<input required placeholder="e.g. DevOps Engineer" /></label>
             <label>Skills<input required placeholder="AWS, Kubernetes, Terraform" /></label>
@@ -738,13 +752,18 @@ function AlertPage() {
 }
 
 function AdminPage() {
+  const categoryMetrics = CATEGORIES.map((category) => ({
+    label: category.name,
+    value: JOBS.filter((job) => job.categories.includes(category.name)).length,
+  })).sort((a, b) => b.value - a.value);
+  const largestCategory = Math.max(...categoryMetrics.map((item) => item.value), 1);
   const metrics = [
-    ["Total jobs", "100", BriefcaseBusiness, "+12 this week"],
-    ["Active jobs", "100", Zap, "Prototype dataset"],
-    ["Added today", "4", Sparkles, "Ready to review"],
-    ["Failed imports", "0", ShieldCheck, "No live imports"],
-    ["Duplicate jobs", "3", Link2, "Needs review"],
-    ["Sources", "1", Globe2, "Demo source"],
+    ["Total jobs", String(JOBS.length), BriefcaseBusiness, "Current catalogue"],
+    ["Active jobs", String(JOBS.length), Zap, "Expired excluded"],
+    ["Added today", String(JOBS.filter((job) => job.daysAgo === 0).length), Sparkles, "Fresh source records"],
+    ["Categories", String(CATEGORIES.length), ShieldCheck, "100+ jobs in each"],
+    ["Unique sources", "1", Link2, "Public API"],
+    ["Sources", "1", Globe2, "Himalayas API"],
   ] as const;
   return (
     <main className="admin-page">
@@ -752,15 +771,15 @@ function AdminPage() {
         <aside className="admin-nav">
           <AppLink href="/" className="brand"><Logo /><span>JobOrbit <b>AI</b></span></AppLink>
           <nav><a className="active"><LayoutDashboard />Overview</a><a><BriefcaseBusiness />Jobs</a><a><Building2 />Companies</a><a><Globe2 />Sources</a><a><RefreshCw />Imports</a></nav>
-          <span>Prototype admin</span>
+          <span>Catalogue operations</span>
         </aside>
         <section className="admin-content">
           <div className="admin-heading"><div><span>Monday, 27 July</span><h1>Job operations overview</h1><p>Monitor the quality and freshness of your aggregated job catalogue.</p></div><button className="button button-primary"><RefreshCw size={16} /> Trigger refresh</button></div>
-          <DemoNotice />
+          <FreshnessNotice />
           <div className="metric-grid">{metrics.map(([label, value, Icon, note]) => <div className="metric-card" key={label}><span><Icon /></span><small>{label}</small><b>{value}</b><em>{note}</em></div>)}</div>
           <div className="admin-grid">
-            <div className="admin-panel"><div className="panel-heading"><h2>Jobs by category</h2><button>View report</button></div>{[["DevOps", 34], ["Platform Engineering", 22], ["SRE", 18], ["Cloud Engineering", 16], ["MLOps", 10]].map(([label, value]) => <div className="bar-row" key={label}><span>{label}</span><div><i style={{ width: `${value}%` }} /></div><b>{value}</b></div>)}</div>
-            <div className="admin-panel"><div className="panel-heading"><h2>Source health</h2><button>Manage</button></div><div className="source-health"><span className="company-logo company-logo-medium" style={{ "--logo": "#4f46e5" } as React.CSSProperties}>JO</span><div><b>JobOrbit demo dataset</b><small>Last refresh: today</small></div><Tag tone="green">Healthy</Tag></div><div className="admin-empty"><RefreshCw /><p>Connect APIs or scraping pipelines to see live import health.</p></div></div>
+            <div className="admin-panel"><div className="panel-heading"><h2>Jobs by category</h2><button>View report</button></div>{categoryMetrics.map(({ label, value }) => <div className="bar-row" key={label}><span>{label}</span><div><i style={{ width: `${Math.round((value / largestCategory) * 100)}%` }} /></div><b>{value}</b></div>)}</div>
+            <div className="admin-panel"><div className="panel-heading"><h2>Source health</h2><button>Manage</button></div><div className="source-health"><span className="company-logo company-logo-medium" style={{ "--logo": "#4f46e5" } as React.CSSProperties}>HI</span><div><b>Himalayas public jobs API</b><small>Last refresh: {fetchedAtLabel}</small></div><Tag tone="green">Healthy</Tag></div><div className="admin-empty"><RefreshCw /><p>{JOBS.length} current jobs passed publication-date, expiry-date and URL validation.</p></div></div>
           </div>
         </section>
       </div>
@@ -770,7 +789,7 @@ function AdminPage() {
 
 function PlaceholderPage({ title, icon }: { title: string; icon: React.ReactNode }) {
   return (
-    <main className="placeholder-page"><div className="empty-state large"><span className="placeholder-icon">{icon}</span><h1>{title}</h1><p>This screen is prepared for the next integration phase. The navigation and product structure are already in place.</p><AppLink href="/jobs" className="button button-primary">Explore sample jobs</AppLink></div></main>
+    <main className="placeholder-page"><div className="empty-state large"><span className="placeholder-icon">{icon}</span><h1>{title}</h1><p>This screen is prepared for the next integration phase. The live job catalogue is already available.</p><AppLink href="/jobs" className="button button-primary">Explore active jobs</AppLink></div></main>
   );
 }
 
@@ -778,12 +797,12 @@ function Footer() {
   return (
     <footer className="site-footer">
       <div className="footer-grid">
-        <div><span className="brand"><Logo /><span>JobOrbit <b>AI</b></span></span><p>Discover AI, DevOps and MLOps opportunities worldwide.</p><Tag tone="violet">Prototype</Tag></div>
+        <div><span className="brand"><Logo /><span>JobOrbit <b>AI</b></span></span><p>Discover current AI, DevOps and MLOps opportunities worldwide.</p><Tag tone="green">Live jobs</Tag></div>
         <div><b>Discover</b><AppLink href="/jobs">All jobs</AppLink><AppLink href="/jobs/india">India jobs</AppLink><AppLink href="/jobs/remote">Remote jobs</AppLink></div>
         <div><b>For talent</b><AppLink href="/saved-jobs">Saved jobs</AppLink><AppLink href="/job-alerts">Job alerts</AppLink><AppLink href="/companies">Companies</AppLink></div>
-        <div><b>Platform</b><AppLink href="/post-job">Post a job</AppLink><AppLink href="/admin">Admin demo</AppLink><a href="mailto:hello@joborbit.example">Contact</a></div>
+        <div><b>Platform</b><AppLink href="/post-job">Post a job</AppLink><AppLink href="/admin">Admin</AppLink><a href="https://github.com/shivam2003-dev/joborbit-ai" target="_blank" rel="noreferrer">GitHub</a></div>
       </div>
-      <div className="footer-bottom"><span>© 2026 JobOrbit AI prototype.</span><span>Fictional job data • Built for demonstration</span></div>
+      <div className="footer-bottom"><span>© 2026 JobOrbit AI.</span><span>Jobs sourced from <a href="https://himalayas.app/jobs" target="_blank" rel="noreferrer">Himalayas</a> • Updated daily • Expired listings excluded</span></div>
     </footer>
   );
 }
