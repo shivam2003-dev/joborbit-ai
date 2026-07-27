@@ -166,6 +166,7 @@ export const JOB_DATA_META = {
   fetchedAt: liveJobData.fetchedAt,
   cutoffDate: liveJobData.cutoffDate,
   source: liveJobData.source,
+  sources: liveJobData.sources,
   exchangeRates: liveJobData.exchangeRates,
   counts: liveJobData.counts as Record<JobCategory, number>,
 };
@@ -203,12 +204,34 @@ function colorFor(value: string) {
   return companyColors[score % companyColors.length];
 }
 
+function publicLogoUrl(job: Job) {
+  if (job.companyLogoUrl) return job.companyLogoUrl;
+  const atsHosts = new Set([
+    "job-boards.greenhouse.io",
+    "boards.greenhouse.io",
+    "boards.eu.greenhouse.io",
+    "job-boards.eu.greenhouse.io",
+    "jobs.lever.co",
+    "jobs.ashbyhq.com",
+  ]);
+  let domain = "";
+  try {
+    const sourceDomain = new URL(job.sourceUrl).hostname.replace(/^www\./, "");
+    domain = atsHosts.has(sourceDomain)
+      ? `${job.companyId.replaceAll("-", "")}.com`
+      : sourceDomain;
+  } catch {
+    domain = `${job.companyId.replaceAll("-", "")}.com`;
+  }
+  return `https://icons.duckduckgo.com/ip3/${encodeURIComponent(domain)}.ico`;
+}
+
 const companyMap = new Map<string, Company>();
 for (const job of JOBS) {
   const company = companyMap.get(job.companyId);
   if (company) {
     company.activeJobs += 1;
-    if (!company.logoUrl && job.companyLogoUrl) company.logoUrl = job.companyLogoUrl;
+    if (!company.logoUrl) company.logoUrl = publicLogoUrl(job);
     company.technologies = [...new Set([...company.technologies, ...job.skills])].slice(0, 8);
     continue;
   }
@@ -216,7 +239,7 @@ for (const job of JOBS) {
     id: job.companyId,
     name: job.companyName,
     initials: job.companyLogo,
-    logoUrl: job.companyLogoUrl,
+    logoUrl: publicLogoUrl(job),
     accent: colorFor(job.companyName),
     industry: job.category,
     headquarters: job.locationText,

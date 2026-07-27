@@ -33,6 +33,7 @@ import {
   Sun,
   Target,
   TrendingUp,
+  Upload,
   Users,
   X,
   Zap,
@@ -208,7 +209,7 @@ function CompanyLogo({ job, size = "medium" }: { job: Job; size?: "small" | "med
       key={job.companyLogoUrl || job.companyId}
       name={job.companyName}
       initials={job.companyLogo}
-      logoUrl={job.companyLogoUrl}
+      logoUrl={job.companyLogoUrl || company?.logoUrl || ""}
       accent={company?.accent ?? "#4f46e5"}
       size={size}
     />
@@ -343,10 +344,259 @@ function Hero({ onChip }: { onChip: (value: string) => void }) {
   );
 }
 
+const guidedRoles = [
+  { label: "DevOps", categories: ["DevOps", "Cloud Engineering"] },
+  { label: "AI & ML", categories: ["Artificial Intelligence", "Machine Learning", "Generative AI"] },
+  { label: "MLOps", categories: ["MLOps", "Platform Engineering"] },
+  { label: "SRE & Platform", categories: ["Site Reliability Engineering", "Platform Engineering"] },
+] as const;
+
+const guidedQuestions = [
+  { key: "role", title: "Which role family are you targeting?", options: guidedRoles.map((item) => item.label) },
+  { key: "experience", title: "How much professional experience do you have?", options: ["1 year", "2 years", "3 years", "4 years"] },
+  { key: "location", title: "Where do you want to work?", options: ["India", "Hyderabad", "Bengaluru", "Remote worldwide"] },
+  { key: "workplace", title: "Which work arrangement fits you?", options: ["Any arrangement", "Remote", "Hybrid", "On-site"] },
+] as const;
+
+const locationAliases = [
+  "hyderabad",
+  "bengaluru",
+  "bangalore",
+  "pune",
+  "mumbai",
+  "chennai",
+  "noida",
+  "gurugram",
+  "gurgaon",
+  "delhi",
+  "india",
+] as const;
+
+function inferRoleCategories(value: string) {
+  const text = value.toLowerCase();
+  const categories = new Set<string>();
+  const add = (...items: string[]) => items.forEach((item) => categories.add(item));
+  if (/\bdevops\b|ci.?cd|terraform|ansible|jenkins/.test(text)) add("DevOps", "Cloud Engineering");
+  if (/\bsre\b|site reliability|observability|prometheus|grafana/.test(text)) add("Site Reliability Engineering", "Platform Engineering");
+  if (/platform|kubernetes|infrastructure/.test(text)) add("Platform Engineering", "Cloud Engineering");
+  if (/cloud|\baws\b|azure|\bgcp\b/.test(text)) add("Cloud Engineering", "DevOps");
+  if (/mlops|model deploy|model serving/.test(text)) add("MLOps", "Machine Learning");
+  if (/generative|\bgenai\b|\bllm\b|\brag\b|prompt/.test(text)) add("Generative AI", "Artificial Intelligence");
+  if (/machine learning|\bml\b|data scientist|pytorch|tensorflow/.test(text)) add("Machine Learning", "Artificial Intelligence", "Data Science");
+  if (/artificial intelligence|\bai\b/.test(text)) add("Artificial Intelligence");
+  if (/data science|analytics/.test(text)) add("Data Science", "Machine Learning");
+  if (/security|cyber|soc analyst/.test(text)) add("Cybersecurity");
+  return [...categories];
+}
+
+function rankJobsForCandidate({
+  prompt,
+  resumeText,
+  role,
+  experience,
+  location,
+  workplace,
+}: {
+  prompt: string;
+  resumeText: string;
+  role?: string;
+  experience?: string;
+  location?: string;
+  workplace?: string;
+}) {
+  const combined = `${prompt} ${resumeText.slice(0, 20_000)}`.toLowerCase();
+  const roleConfig = guidedRoles.find((item) => item.label === role);
+  const categories = roleConfig ? [...roleConfig.categories] : inferRoleCategories(combined);
+  const experienceValue = Number(
+    experience?.match(/\d/)?.[0] ?? combined.match(/\b([1-4])\s*(?:years?|yrs?)\b/)?.[1] ?? 0,
+  );
+  const inferredLocation =
+    location?.toLowerCase() ??
+    locationAliases.find((item) => combined.includes(item)) ??
+    (combined.includes("remote") ? "remote worldwide" : "");
+  const tokens = [
+    ...new Set(
+      combined
+        .replace(/[^a-z0-9+#.]+/g, " ")
+        .split(/\s+/)
+        .filter((token) => token.length > 2)
+        .filter((token) => !["job", "jobs", "with", "years", "year", "experience", "looking", "want"].includes(token)),
+    ),
+  ].slice(0, 40);
+
+  const ranked = JOBS.map((job) => {
+    const haystack = `${job.title} ${job.companyName} ${job.categories.join(" ")} ${job.skills.join(" ")} ${job.locationText}`.toLowerCase();
+    let score = tokens.reduce((total, token) => total + (haystack.includes(token) ? 2 : 0), 0);
+    if (categories.some((category) => job.categories.includes(category as Job["category"]))) score += 14;
+    if (experienceValue && job.experienceMinimum <= experienceValue && job.experienceMaximum >= experienceValue) score += 9;
+    if (inferredLocation) {
+      const wantsIndia = inferredLocation === "india";
+      const wantsRemote = inferredLocation.includes("remote");
+      const locationMatch =
+        (wantsIndia && job.regionType === "India") ||
+        (wantsRemote && (job.workplaceType === "Remote" || job.regionType === "Remote worldwide")) ||
+        job.locationText.toLowerCase().includes(inferredLocation.replace("bangalore", "bengaluru"));
+      score += locationMatch ? 12 : -10;
+    }
+    if (workplace && workplace !== "Any arrangement") {
+      score += job.workplaceType === workplace ? 8 : -8;
+    }
+    if (job.regionType === "India") score += 2;
+    score += Math.max(0, 4 - job.daysAgo / 10);
+    return { job, score };
+  })
+    .filter(({ job, score }) => {
+      if (score <= 0) return false;
+      if (categories.length && !categories.some((category) => job.categories.includes(category as Job["category"]))) return false;
+      if (experienceValue && !(job.experienceMinimum <= experienceValue && job.experienceMaximum >= experienceValue)) return false;
+      if (workplace && workplace !== "Any arrangement" && job.workplaceType !== workplace) return false;
+      return true;
+    })
+    .sort((a, b) => b.score - a.score || a.job.daysAgo - b.job.daysAgo);
+
+  return ranked.slice(0, 4).map(({ job }) => job);
+}
+
+function AiJobMatcher() {
+  const [mode, setMode] = useState<"prompt" | "guided">("prompt");
+  const [prompt, setPrompt] = useState("");
+  const [resumeName, setResumeName] = useState("");
+  const [resumeText, setResumeText] = useState("");
+  const [step, setStep] = useState(0);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [matches, setMatches] = useState<Job[]>([]);
+  const [searched, setSearched] = useState(false);
+
+  const runPrompt = () => {
+    setMatches(rankJobsForCandidate({ prompt, resumeText }));
+    setSearched(true);
+  };
+
+  const chooseGuidedAnswer = (key: string, value: string) => {
+    const next = { ...answers, [key]: value };
+    setAnswers(next);
+    if (step < guidedQuestions.length - 1) {
+      setStep((current) => current + 1);
+      return;
+    }
+    setMatches(
+      rankJobsForCandidate({
+        prompt: "",
+        resumeText,
+        role: next.role,
+        experience: next.experience,
+        location: next.location,
+        workplace: next.workplace,
+      }),
+    );
+    setSearched(true);
+  };
+
+  const resetGuided = () => {
+    setStep(0);
+    setAnswers({});
+    setMatches([]);
+    setSearched(false);
+  };
+
+  return (
+    <section className="section ai-matcher-section">
+      <div className="ai-matcher">
+        <div className="ai-matcher-intro">
+          <span className="eyebrow"><Sparkles size={15} /> JobOrbit Match</span>
+          <h2>Describe the job you want. We’ll find the closest live roles.</h2>
+          <p>Search naturally, add your resume for skill context, or use a guided four-question path. Matching runs against the verified JobOrbit catalogue.</p>
+          <div className="matcher-trust">
+            <span><ShieldCheck /> Resume processed in your browser</span>
+            <span><Check /> Only active 1–4 year roles</span>
+          </div>
+        </div>
+        <div className="ai-workspace">
+          <div className="ai-mode-tabs" role="tablist" aria-label="Job matching mode">
+            <button className={mode === "prompt" ? "active" : ""} onClick={() => setMode("prompt")}><Search /> Natural search</button>
+            <button className={mode === "guided" ? "active" : ""} onClick={() => setMode("guided")}><ListFilter /> Guided mode</button>
+          </div>
+          {mode === "prompt" ? (
+            <div className="ai-prompt-panel">
+              <label>
+                <span>What are you looking for?</span>
+                <textarea
+                  value={prompt}
+                  onChange={(event) => setPrompt(event.target.value)}
+                  placeholder="Example: DevOps jobs in Hyderabad for 2 years of experience"
+                  rows={3}
+                />
+              </label>
+              <div className="prompt-examples">
+                {["DevOps · Hyderabad · 2 years", "Remote MLOps · 3 years", "AI engineer · Bengaluru · 1 year"].map((example) => (
+                  <button key={example} onClick={() => setPrompt(example)}>{example}</button>
+                ))}
+              </div>
+              <div className="ai-input-actions">
+                <label className={`resume-upload ${resumeName ? "has-file" : ""}`}>
+                  <Upload size={18} />
+                  <span>{resumeName || "Add resume"}</span>
+                  <input
+                    type="file"
+                    accept=".pdf,.doc,.docx,.txt,.md"
+                    onChange={async (event) => {
+                      const file = event.target.files?.[0];
+                      if (!file) return;
+                      setResumeName(file.name);
+                      setResumeText((await file.text().catch(() => "")).slice(0, 20_000));
+                    }}
+                  />
+                </label>
+                <button className="button button-primary" onClick={runPrompt} disabled={!prompt.trim() && !resumeName}>
+                  Find my jobs <ArrowRight size={17} />
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="guided-panel">
+              <div className="guided-progress">
+                <span>Question {Math.min(step + 1, guidedQuestions.length)} of {guidedQuestions.length}</span>
+                <i><b style={{ width: `${((Math.min(step + 1, guidedQuestions.length)) / guidedQuestions.length) * 100}%` }} /></i>
+              </div>
+              {!searched ? (
+                <>
+                  <h3>{guidedQuestions[step].title}</h3>
+                  <div className="guided-options">
+                    {guidedQuestions[step].options.map((option) => (
+                      <button key={option} onClick={() => chooseGuidedAnswer(guidedQuestions[step].key, option)}>
+                        <span>{option}</span><ArrowRight size={17} />
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <button className="guided-reset" onClick={resetGuided}>Start again</button>
+              )}
+            </div>
+          )}
+          {searched && (
+            <div className="ai-match-results" aria-live="polite">
+              <div><b>{matches.length} strongest matches</b><span>Ranked by role, skills, experience, location and freshness</span></div>
+              {matches.length ? matches.map((job) => (
+                <AppLink href={`/jobs/${job.slug}`} key={job.id} className="ai-match-row">
+                  <CompanyLogo job={job} size="small" />
+                  <span><b>{job.title}</b><small>{job.companyName} · {job.locationText}</small></span>
+                  <Tag tone="green">{job.experienceText}</Tag>
+                  <ArrowRight size={17} />
+                </AppLink>
+              )) : <p className="matcher-empty">No exact live match yet. Try a nearby city, a broader role family, or “Remote worldwide”.</p>}
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function HomePage({ saved, toggleSaved }: { saved: Set<string>; toggleSaved: (id: string) => void }) {
   const featured = JOBS.slice(0, 6);
   const regions = [
-    { title: "All early-career jobs", copy: `${JOBS.length} verified roles`, icon: <BriefcaseBusiness />, href: "/jobs", className: "india" },
+    { title: "Jobs in India", copy: `${JOBS.filter((job) => job.regionType === "India").length} verified roles`, icon: <BriefcaseBusiness />, href: "/jobs/india", className: "india" },
     { title: "Jobs outside India", copy: `${JOBS.filter((job) => job.regionType === "Outside India").length} active roles`, icon: <Globe2 />, href: "/jobs/international", className: "world" },
     { title: "Remote worldwide", copy: `${JOBS.filter((job) => job.regionType === "Remote worldwide").length} active roles`, icon: <Cloud />, href: "/jobs/remote", className: "remote" },
     { title: "Experience 1–4 years", copy: "No senior-level roles", icon: <HeartHandshake />, href: "/jobs", className: "visa" },
@@ -357,6 +607,7 @@ function HomePage({ saved, toggleSaved }: { saved: Set<string>; toggleSaved: (id
         <FreshnessNotice />
         <Hero onChip={(value) => { window.location.href = routeHref(`/jobs?q=${encodeURIComponent(value)}`); }} />
       </div>
+      <AiJobMatcher />
       <section className="section section-tight">
         <div className="section-heading">
           <div><span className="section-kicker">Explore faster</span><h2>Browse by category</h2></div>
@@ -476,6 +727,10 @@ function FilterGroup({
 }
 
 function FilterSidebar({
+  query,
+  setQuery,
+  location,
+  setLocation,
   region,
   setRegion,
   date,
@@ -493,6 +748,10 @@ function FilterSidebar({
   onReset,
   onClose,
 }: {
+  query: string;
+  setQuery: (value: string) => void;
+  location: string;
+  setLocation: (value: string) => void;
   region: string;
   setRegion: (value: string) => void;
   date: string;
@@ -516,6 +775,16 @@ function FilterSidebar({
         <b><ListFilter size={17} /> Filters</b>
         <button onClick={onReset}>Reset all</button>
         {onClose && <button className="mobile-filter-close" onClick={onClose}><X size={19} /></button>}
+      </div>
+      <div className="sidebar-search">
+        <label>
+          <span>Search jobs</span>
+          <div><Search size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Title, skill or company" /></div>
+        </label>
+        <label>
+          <span>Location</span>
+          <div><MapPin size={17} /><input value={location} onChange={(event) => setLocation(event.target.value)} placeholder="City or remote" /></div>
+        </label>
       </div>
       <FilterGroup title="Region" options={FILTER_CONFIG.regions} selected={region} onSelect={setRegion} />
       <FilterGroup title="Date posted" options={FILTER_CONFIG.datePosted} selected={date} onSelect={setDate} />
@@ -672,14 +941,6 @@ function JobsPage({
 
   return (
     <main className="jobs-page">
-      <div className="jobs-search-strip">
-        <form className="jobs-search-inner" onSubmit={(event) => event.preventDefault()}>
-          <label><Search size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search title, skill or company" /></label>
-          <label className="desktop-only"><MapPin size={17} /><input value={location} onChange={(event) => setLocation(event.target.value)} placeholder="City or location" /></label>
-          <button type="submit" className="button button-primary">Search</button>
-        </form>
-      </div>
-      <FreshnessNotice />
       <div className="jobs-mobile-controls">
         <button onClick={() => setFiltersOpen(true)}><Filter size={16} /> Filters {activeFilters.length > 0 && <b>{activeFilters.length}</b>}</button>
         <select value={sort} onChange={(e) => setSort(e.target.value)}>
@@ -689,6 +950,7 @@ function JobsPage({
       <div className="jobs-layout">
         <div className={`filter-drawer ${filtersOpen ? "open" : ""}`} onClick={(event) => event.currentTarget === event.target && setFiltersOpen(false)}>
           <FilterSidebar
+            query={query} setQuery={setQuery} location={location} setLocation={setLocation}
             region={region} setRegion={setRegion} date={date} setDate={setDate}
             workplace={workplace} setWorkplace={setWorkplace} skill={skill} setSkill={setSkill}
             experience={experience} setExperience={setExperience}
@@ -727,6 +989,76 @@ function JobsPage({
           {limit < filtered.length && <button className="button load-more" onClick={() => setLimit((value) => value + 12)}>Load more jobs</button>}
         </section>
         {selected && <JobPreview job={selected} saved={saved.has(selected.id)} onSave={() => toggleSaved(selected.id)} />}
+      </div>
+    </main>
+  );
+}
+
+function CategoryLandingPage({
+  categorySlug,
+  saved,
+  toggleSaved,
+}: {
+  categorySlug?: string;
+  saved: Set<string>;
+  toggleSaved: (id: string) => void;
+}) {
+  const category = CATEGORIES.find((item) => item.slug === categorySlug) ?? CATEGORIES[0];
+  const jobs = JOBS.filter((job) => job.categories.includes(category.name));
+  const indiaCount = jobs.filter((job) => job.regionType === "India").length;
+  const remoteCount = jobs.filter((job) => job.workplaceType === "Remote" || job.regionType === "Remote worldwide").length;
+  const newestCount = jobs.filter((job) => job.daysAgo <= 7).length;
+  const [limit, setLimit] = useState(24);
+  return (
+    <main className="category-page">
+      <div className="page-shell">
+        <AppLink href="/jobs" className="back-link"><ArrowLeft size={16} /> All jobs</AppLink>
+        <section className="category-hero" style={{ "--category-accent": category.accent } as React.CSSProperties}>
+          <span className="category-hero-icon">{category.icon}</span>
+          <div>
+            <span className="section-kicker">Role collection</span>
+            <h1>{category.name} jobs</h1>
+            <p>{category.description}. Every role is active, was published within 45 days, and asks for a minimum of 1–4 years of experience.</p>
+          </div>
+          <AppLink href={`/jobs?q=${encodeURIComponent(category.name)}`} className="button button-primary">Search with filters <ListFilter size={17} /></AppLink>
+        </section>
+        <div className="category-metrics">
+          <div><b>{jobs.length}</b><span>verified openings</span></div>
+          <div><b>{indiaCount}</b><span>India roles</span></div>
+          <div><b>{remoteCount}</b><span>remote options</span></div>
+          <div><b>{newestCount}</b><span>added this week</span></div>
+        </div>
+        <section className="category-results">
+          <div className="section-heading">
+            <div><span className="section-kicker">Current openings</span><h2>Explore {category.name}</h2></div>
+            <span className="category-result-count">Showing {Math.min(limit, jobs.length)} of {jobs.length}</span>
+          </div>
+          <div className="category-job-grid">
+            {jobs.slice(0, limit).map((job) => (
+              <JobCard
+                key={job.id}
+                job={job}
+                detailed
+                isSaved={saved.has(job.id)}
+                onSave={() => toggleSaved(job.id)}
+                onSelect={() => { window.location.href = routeHref(`/jobs/${job.slug}`); }}
+              />
+            ))}
+          </div>
+          {limit < jobs.length && <button className="button load-more" onClick={() => setLimit((value) => value + 24)}>Load 24 more jobs</button>}
+        </section>
+        <section className="category-related">
+          <div className="section-heading"><div><span className="section-kicker">Related paths</span><h2>Explore other categories</h2></div></div>
+          <div className="track-grid">
+            {CATEGORIES.filter((item) => item.slug !== category.slug).slice(0, 4).map((item) => (
+              <AppLink href={`/categories/${item.slug}`} key={item.slug}>
+                <span style={{ "--category": item.accent } as React.CSSProperties}>{item.icon}</span>
+                <div><b>{item.name}</b><small>{JOBS.filter((job) => job.categories.includes(item.name)).length} verified jobs</small></div>
+                <ArrowRight size={16} />
+              </AppLink>
+            ))}
+          </div>
+        </section>
       </div>
     </main>
   );
@@ -996,12 +1328,6 @@ function CareerResourcesPage() {
   return (
     <main className="resources-page">
       <div className="page-shell">
-        <section className="resources-hero">
-          <span className="eyebrow"><BookOpen size={14} /> Career resources for 1–4 years</span>
-          <h1>Turn early experience into a stronger engineering story</h1>
-          <p>Practical preparation for DevOps, cloud, SRE, MLOps and AI roles—focused on evidence, clarity and the skills employers actually ask about.</p>
-          <div><AppLink href="/jobs" className="button button-primary">Browse matching jobs <ArrowRight size={16} /></AppLink><AppLink href="/job-alerts" className="button button-outline">Create an alert</AppLink></div>
-        </section>
         <section className="resource-section">
           <div className="section-heading"><div><span className="section-kicker">30-day plan</span><h2>A focused path from profile to interview</h2></div></div>
           <div className="roadmap-grid">
@@ -1068,6 +1394,7 @@ function CareerResourcesPage() {
 }
 
 function AdminPage() {
+  const sourceCount = JOB_DATA_META.sources.length;
   const categoryMetrics = CATEGORIES.map((category) => ({
     label: category.name,
     value: JOBS.filter((job) => job.categories.includes(category.name)).length,
@@ -1078,8 +1405,8 @@ function AdminPage() {
     ["Active jobs", String(JOBS.length), Zap, "Expired excluded"],
     ["Added today", String(JOBS.filter((job) => job.daysAgo === 0).length), Sparkles, "Fresh source records"],
     ["Experience scope", "1–4 yrs", ShieldCheck, "Senior roles excluded"],
-    ["Unique sources", "1", Link2, "Public API"],
-    ["Sources", "1", Globe2, "Himalayas API"],
+    ["Unique sources", String(sourceCount), Link2, "Public job feeds"],
+    ["Sources", String(sourceCount), Globe2, "ATS and aggregator APIs"],
   ] as const;
   return (
     <main className="admin-page">
@@ -1095,7 +1422,7 @@ function AdminPage() {
           <div className="metric-grid">{metrics.map(([label, value, Icon, note]) => <div className="metric-card" key={label}><span><Icon /></span><small>{label}</small><b>{value}</b><em>{note}</em></div>)}</div>
           <div className="admin-grid">
             <div className="admin-panel"><div className="panel-heading"><h2>Jobs by category</h2><button>View report</button></div>{categoryMetrics.map(({ label, value }) => <div className="bar-row" key={label}><span>{label}</span><div><i style={{ width: `${Math.round((value / largestCategory) * 100)}%` }} /></div><b>{value}</b></div>)}</div>
-            <div className="admin-panel"><div className="panel-heading"><h2>Source health</h2><button>Manage</button></div><div className="source-health"><span className="company-logo company-logo-medium" style={{ "--logo": "#4f46e5" } as React.CSSProperties}>HI</span><div><b>Himalayas public jobs API</b><small>Last refresh: {fetchedAtLabel}</small></div><Tag tone="green">Healthy</Tag></div><div className="admin-empty"><RefreshCw /><p>{JOBS.length} current jobs passed publication-date, expiry-date and URL validation.</p></div></div>
+            <div className="admin-panel"><div className="panel-heading"><h2>Source health</h2><button>Manage</button></div><div className="source-health"><span className="company-logo company-logo-medium" style={{ "--logo": "#4f46e5" } as React.CSSProperties}>{sourceCount}</span><div><b>Public job source network</b><small>{JOB_DATA_META.sources.map((source) => source.name).join(", ")} · refreshed {fetchedAtLabel}</small></div><Tag tone="green">Healthy</Tag></div><div className="admin-empty"><RefreshCw /><p>{JOBS.length} current jobs passed publication-date, expiry-date and URL validation.</p></div></div>
           </div>
         </section>
       </div>
@@ -1118,7 +1445,7 @@ function Footer() {
         <div><b>For talent</b><AppLink href="/saved-jobs">Saved jobs</AppLink><AppLink href="/job-alerts">Job alerts</AppLink><AppLink href="/companies">Companies</AppLink></div>
         <div><b>Platform</b><AppLink href="/post-job">Post a job</AppLink><AppLink href="/admin">Admin</AppLink><a href="https://github.com/shivam2003-dev/joborbit-ai" target="_blank" rel="noreferrer">GitHub</a></div>
       </div>
-      <div className="footer-bottom"><span>© 2026 JobOrbit AI.</span><span>Jobs sourced from <a href="https://himalayas.app/jobs" target="_blank" rel="noreferrer">Himalayas</a> • Updated daily • Expired listings excluded</span></div>
+      <div className="footer-bottom"><span>© 2026 JobOrbit AI.</span><span>Jobs sourced from public Greenhouse, Lever, Ashby and Himalayas feeds • Updated daily • Expired listings excluded</span></div>
     </footer>
   );
 }
@@ -1151,7 +1478,7 @@ export default function JobOrbitApp({ route = [] }: { route?: string[] }) {
     const region = path[1] === "india" ? "India" : path[1] === "international" ? "Outside India" : path[1] === "remote" ? "Remote worldwide" : undefined;
     content = <JobsPage initialRegion={region} saved={saved} toggleSaved={toggleSaved} />;
   } else if (root === "categories") {
-    content = <JobsPage categorySlug={path[1]} saved={saved} toggleSaved={toggleSaved} />;
+    content = <CategoryLandingPage categorySlug={path[1]} saved={saved} toggleSaved={toggleSaved} />;
   } else if (root === "companies" && path[1]) {
     content = <CompanyPage id={path[1]} />;
   } else if (root === "companies") {

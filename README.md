@@ -3,8 +3,11 @@
 A premium, responsive job aggregator focused on DevOps, platform engineering,
 cloud, SRE, MLOps and adjacent AI roles.
 
-The catalogue contains real listings from the
-[Himalayas public jobs API](https://himalayas.app/api). Every record is:
+The catalogue contains real listings from public
+[Greenhouse](https://developer.greenhouse.io/job-board.html),
+[Lever](https://github.com/lever/postings-api),
+[Ashby](https://developers.ashbyhq.com/reference/joblist) and
+[Himalayas](https://himalayas.app/api) job feeds. Every record is:
 
 - published within the last 45 days;
 - reported with a future expiry date at refresh time;
@@ -13,8 +16,10 @@ The catalogue contains real listings from the
 - linked to its original HTTPS job and application pages; and
 - rechecked by the scheduled daily refresh before deployment.
 
-Counts change as eligible listings are added, close or expire. Company logos
-come from the same source feed and fall back to initials when unavailable.
+The refresh enforces at least 100 eligible roles in every supported category
+before it replaces the published dataset. Counts change as eligible listings
+are added, close or expire. Company logos come from the source or the company
+website favicon and fall back to initials when unavailable.
 Published salary ranges are also shown as indicative Indian rupee conversions
 using dated public exchange-rate data while preserving the original currency.
 
@@ -22,6 +27,8 @@ using dated public exchange-rate data while preserving the original currency.
 
 - SaaS-style homepage with search, categories, region shortcuts, featured jobs,
   recent jobs, companies and alert CTA
+- Smart job matching with natural-language prompts, local resume input and a
+  four-question guided mode
 - Desktop job search with filter sidebar, compact result list and job preview
 - Mobile job search with responsive cards and slide-over filters
 - Filters for region, date posted, work arrangement and skills
@@ -29,7 +36,8 @@ using dated public exchange-rate data while preserving the original currency.
 - Full SEO-friendly job detail pages with JobPosting structured data
 - Company directory and company profiles
 - Saved-jobs interaction, job-alert form, dark theme and admin dashboard
-- Static pages for India, international, remote and category searches
+- Static pages for India, international and remote searches
+- Dedicated category landing pages with current category metrics and role cards
 - Social preview card and complete GitHub Pages deployment workflow
 - Daily automated catalogue refresh with expiry and recency validation
 
@@ -62,10 +70,12 @@ Run the same source refresh used in deployment:
 npm run fetch:jobs
 ```
 
-`scripts/fetch-jobs.mjs` searches the source across all supported categories,
+`scripts/fetch-jobs.mjs` collects the Himalayas seed catalogue.
+`scripts/expand-ats-jobs.mjs` discovers additional roles, verifies each
+Greenhouse, Lever and Ashby record against its original public ATS endpoint,
 normalises and deduplicates records, rejects listings older than 45 days,
 rejects expired records, validates HTTPS URLs, removes higher-experience roles
-and writes `data/jobs.json`.
+and writes `data/jobs.json` only after all category targets pass.
 
 `lib/job-data.ts` applies a second runtime freshness check so a stale generated
 file cannot expose expired or older-than-45-day listings.
