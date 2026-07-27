@@ -182,46 +182,6 @@ function FreshnessNotice() {
   );
 }
 
-function SearchBar({ compact = false }: { compact?: boolean }) {
-  const [keyword, setKeyword] = useState("");
-  const [location, setLocation] = useState("");
-  const [region, setRegion] = useState("All locations");
-  const submit = (event: React.FormEvent) => {
-    event.preventDefault();
-    const params = new URLSearchParams();
-    if (keyword) params.set("q", keyword);
-    if (location) params.set("location", location);
-    if (region !== "All locations") params.set("region", region);
-    window.location.href = routeHref(`/jobs${params.size ? `?${params.toString()}` : ""}`);
-  };
-  return (
-    <form className={`search-bar ${compact ? "search-bar-compact" : ""}`} onSubmit={submit}>
-      <label className="search-field">
-        <span>{compact ? "Search jobs" : "Job title, skill or company"}</span>
-        <div><Search size={18} /><input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="e.g. DevOps, Kubernetes, MLOps" /></div>
-      </label>
-      {!compact && (
-        <>
-          <label className="search-field">
-            <span>Location</span>
-            <div><MapPin size={18} /><input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="City, state or remote" /></div>
-          </label>
-          <label className="search-field region-select">
-            <span>Region</span>
-            <div><Globe2 size={18} /><select value={region} onChange={(e) => setRegion(e.target.value)}>
-              <option>All locations</option>
-              <option>India</option>
-              <option>Outside India</option>
-              <option>Remote worldwide</option>
-            </select><ChevronDown size={16} /></div>
-          </label>
-        </>
-      )}
-      <button className="button button-primary search-submit" type="submit">Search Jobs <ArrowRight size={17} /></button>
-    </form>
-  );
-}
-
 function CompanyLogo({ job, size = "medium" }: { job: Job; size?: "small" | "medium" | "large" }) {
   const company = getCompanyById(job.companyId);
   return (
@@ -330,37 +290,6 @@ function JobCard({
         {detailed && <button className="text-link" onClick={(event) => { event.stopPropagation(); onSelect(); }}>View job <ArrowRight size={14} /></button>}
       </div>
     </article>
-  );
-}
-
-function Hero({ onChip }: { onChip: (value: string) => void }) {
-  const chips = ["AI Engineer", "DevOps Engineer", "MLOps Engineer", "Platform Engineer", "SRE", "AWS", "Kubernetes"];
-  return (
-    <section className="hero">
-      <div className="hero-copy">
-        <span className="eyebrow"><Sparkles size={14} /> AI-ready career discovery</span>
-        <h1>Find your next <span>AI, DevOps</span> or <span>MLOps opportunity</span></h1>
-        <p>Focused opportunities for professionals with a stated minimum requirement of 1–4 years.</p>
-      </div>
-      <div className="orbit-visual" aria-hidden="true">
-        <span className="orbit orbit-one" />
-        <span className="orbit orbit-two" />
-        <span className="planet" />
-        <span className="satellite satellite-ai">AI</span>
-        <span className="satellite satellite-code">&lt;/&gt;</span>
-        <span className="satellite satellite-infinity">∞</span>
-        <span className="star star-a" />
-        <span className="star star-b" />
-        <span className="star star-c" />
-      </div>
-      <div className="hero-search">
-        <SearchBar />
-        <div className="popular-searches">
-          <span>Popular:</span>
-          {chips.map((chip) => <button key={chip} onClick={() => onChip(chip)}>{chip}</button>)}
-        </div>
-      </div>
-    </section>
   );
 }
 
@@ -623,10 +552,6 @@ function HomePage({ saved, toggleSaved }: { saved: Set<string>; toggleSaved: (id
   ];
   return (
     <main>
-      <div className="home-shell">
-        <FreshnessNotice />
-        <Hero onChip={(value) => { window.location.href = routeHref(`/jobs?q=${encodeURIComponent(value)}`); }} />
-      </div>
       <AiJobMatcher />
       <section className="section section-tight">
         <div className="section-heading">
@@ -1009,6 +934,39 @@ function JobsPage({
           {limit < filtered.length && <button className="button load-more" onClick={() => setLimit((value) => value + 12)}>Load more jobs</button>}
         </section>
         {selected && <JobPreview job={selected} saved={saved.has(selected.id)} onSave={() => toggleSaved(selected.id)} />}
+      </div>
+    </main>
+  );
+}
+
+function CategoriesDirectoryPage() {
+  const displayName = (name: Job["category"]) =>
+    name === "Cybersecurity" ? "Cybersecurity & Network Security" : name;
+  return (
+    <main className="categories-directory-page">
+      <div className="page-shell">
+        <header className="categories-directory-heading">
+          <span className="section-kicker">Role directory</span>
+          <h1>Browse jobs by profile</h1>
+          <p>Choose one role family to see only matching, active openings for professionals with 1–4 years of experience.</p>
+        </header>
+        <nav className="category-directory-list" aria-label="Job categories">
+          {CATEGORIES.map((category, index) => {
+            const count = JOBS.filter((job) => job.categories.includes(category.name)).length;
+            return (
+              <AppLink href={`/categories/${category.slug}`} className="category-directory-row" key={category.slug}>
+                <span className="category-directory-index">{String(index + 1).padStart(2, "0")}</span>
+                <span className="category-icon" style={{ "--category": category.accent } as React.CSSProperties}>{category.icon}</span>
+                <span className="category-directory-copy">
+                  <b>{displayName(category.name)}</b>
+                  <small>{category.description}</small>
+                </span>
+                <span className="category-directory-count">{count} verified jobs</span>
+                <ArrowRight size={18} />
+              </AppLink>
+            );
+          })}
+        </nav>
       </div>
     </main>
   );
@@ -1482,8 +1440,10 @@ export default function JobOrbitApp({ route = [] }: { route?: string[] }) {
   } else if (root === "jobs") {
     const region = path[1] === "india" ? "India" : path[1] === "international" ? "Outside India" : path[1] === "remote" ? "Remote worldwide" : undefined;
     content = <JobsPage initialRegion={region} saved={saved} toggleSaved={toggleSaved} />;
-  } else if (root === "categories") {
+  } else if (root === "categories" && path[1]) {
     content = <CategoryLandingPage categorySlug={path[1]} saved={saved} toggleSaved={toggleSaved} />;
+  } else if (root === "categories") {
+    content = <CategoriesDirectoryPage />;
   } else if (root === "companies" && path[1]) {
     content = <CompanyPage id={path[1]} />;
   } else if (root === "companies") {

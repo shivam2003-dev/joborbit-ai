@@ -4,6 +4,10 @@ import { extractEligibleExperience } from "./job-quality.mjs";
 
 const DISCOVERY_API = "https://glever.co/api/jobs";
 const TARGET_PER_CATEGORY = 100;
+const CATEGORY_TARGETS = {
+  "Cloud Engineering": 80,
+  "Software Engineering": 50,
+};
 const INDIA_TARGET = 100;
 const MAX_DISCOVERY_PAGES = 10;
 const MAX_INDIA_PAGES = 5;
@@ -38,6 +42,21 @@ const discoveryQueries = [
   "Node.js developer",
   ".NET developer",
   "Python developer",
+  "mobile developer",
+  "Android developer",
+  "iOS developer",
+  "Golang developer",
+  "Ruby developer",
+  "C++ developer",
+  "React Native developer",
+  "web engineer",
+  "API developer",
+  "cloud infrastructure engineer",
+  "cloud platform engineer",
+  "cloud solutions engineer",
+  "AWS engineer",
+  "Azure engineer",
+  "GCP engineer",
   "systems engineer",
   "automation engineer",
   "research engineer",
@@ -138,12 +157,16 @@ const categoryPatterns = {
   "Platform Engineering":
     /\bplatform engineer\b|\bplatform engineering\b|\bdeveloper platform\b|\bdeveloper experience\b|\binfrastructure platform\b|\bdevops engineer\b|\bcloud platform\b/i,
   "Cloud Engineering":
-    /\bcloud engineer\b|\bcloud engineering\b|\bcloud infrastructure\b|\bAWS engineer\b|\bAzure engineer\b|\bGCP engineer\b|\binfrastructure engineer\b|\bdevops engineer\b/i,
+    /\bcloud (?:engineer|engineering|infrastructure engineer|platform engineer|solutions engineer|operations engineer|systems engineer|specialist|consultant)\b|\b(?:engineer|specialist|consultant|solutions engineer)[, /-]+cloud\b|\b(?:AWS|Azure|GCP|Google Cloud) engineer\b/i,
   Cybersecurity:
     /\bcyber ?security\b|\bsecurity engineer\b|\bcloud security\b|\bdevsecops\b|\bapplication security\b|\bproduct security\b|\binformation security\b|\bSOC analyst\b|\bsecurity analyst\b/i,
   "Software Engineering":
-    /\bsoftware (?:engineer|developer|development)\b|\bfull[ -]?stack\b|\bjava\b|\bback[ -]?end (?:engineer|developer)\b|\bfront[ -]?end (?:engineer|developer)\b|\bapplication (?:engineer|developer)\b|\bweb developer\b|\bspring(?: boot)?\b|\breact(?:\.js|js)?\b|\bnode(?:\.js|js)?\b|\btypescript\b|\bpython developer\b|\b\.net developer\b/i,
+    /\bsoftware (?:engineer|developer)\b|\bfull[ -]?stack (?:engineer|developer)\b|\bback[ -]?end (?:engineer|developer)\b|\bfront[ -]?end (?:engineer|developer)\b|\bapplication (?:engineer|developer)\b|\bweb (?:engineer|developer)\b|\bmobile (?:engineer|developer)\b|\bandroid (?:engineer|developer)\b|\bios (?:engineer|developer)\b|\bapi developer\b|\bjava (?:engineer|developer)\b|\b(?:golang|ruby|python|typescript|node(?:\.js|js)?|react(?: native)?|c\+\+|\.net) developer\b/i,
 };
+const softwareExcludedTitlePattern =
+  /\b(qa|quality assurance|test|network|security|cyber|devops|devsecops|site reliability|sre|infrastructure|platform|data|machine learning|ml|artificial intelligence|ai)\b/i;
+const cloudExcludedTitlePattern =
+  /\b(qa|quality assurance|test|network|security|cyber|devops|devsecops|site reliability|sre|reliability|software|data|machine learning|ml|artificial intelligence|ai)\b/i;
 
 const skillPatterns = [
   ["Kubernetes", /\bkubernetes\b|\bk8s\b/i],
@@ -271,7 +294,15 @@ function workplaceType(value = "", isRemote = false) {
 function categoriesFor(title, description) {
   const content = `${title}\n${description}`;
   const categories = Object.entries(categoryPatterns)
-    .filter(([, pattern]) => pattern.test(content))
+    .filter(([category, pattern]) => {
+      if (category === "Software Engineering") {
+        return pattern.test(title) && !softwareExcludedTitlePattern.test(title);
+      }
+      if (category === "Cloud Engineering") {
+        return pattern.test(title) && !cloudExcludedTitlePattern.test(title);
+      }
+      return pattern.test(content);
+    })
     .map(([category]) => category);
   const add = (category, condition) => {
     if (condition && !categories.includes(category)) categories.push(category);
@@ -338,7 +369,6 @@ function categoriesFor(title, description) {
       (hasProductionStack || hasDataOperations),
   );
   add("DevOps", hasCloudStack && hasOperations);
-  add("Cloud Engineering", hasCloudStack && hasOperations);
   add("Platform Engineering", hasCloudStack && hasOperations);
   add("Site Reliability Engineering", hasOperations && hasReliability);
   add("Cybersecurity", hasTechnicalSecurity);
@@ -658,9 +688,58 @@ async function runPool(items, worker, concurrency) {
   return results;
 }
 
+if (process.argv.includes("--reclassify-only")) {
+  const existing = JSON.parse(await readFile("data/jobs.json", "utf8"));
+  const jobs = existing.jobs
+    .map((job) => {
+      const categories = [
+        ...new Set([
+          ...job.categories.filter(
+            (category) =>
+              category !== "Software Engineering" &&
+              category !== "Cloud Engineering",
+          ),
+          ...categoriesFor(job.title, job.description),
+        ]),
+      ];
+      if (!categories.length) return null;
+      return { ...job, category: categories[0], categories };
+    })
+    .filter(Boolean);
+  const categoryNames = Object.keys(categoryPatterns);
+  const counts = Object.fromEntries(
+    categoryNames.map((category) => [
+      category,
+      jobs.filter((job) => job.categories.includes(category)).length,
+    ]),
+  );
+  await writeFile(
+    "data/jobs.json",
+    `${JSON.stringify({ ...existing, counts, jobs }, null, 2)}\n`,
+  );
+  process.stdout.write(
+    `Reclassified ${jobs.length} jobs. Category counts: ${JSON.stringify(counts)}\n`,
+  );
+  process.exit(0);
+}
+
 const activeDiscoveryQueries =
-  process.env.SOFTWARE_ONLY === "true"
-    ? discoveryQueries.slice(0, discoveryQueries.indexOf("systems engineer"))
+  process.env.TARGETED_ONLY === "true"
+    ? discoveryQueries.filter(
+        (query) =>
+          discoveryQueries.indexOf(query) < discoveryQueries.indexOf("systems engineer") ||
+          [
+            "cloud engineer",
+            "cloud infrastructure",
+            "AWS engineer",
+            "Azure engineer",
+            "Google Cloud",
+            "cloud infrastructure engineer",
+            "cloud platform engineer",
+            "cloud solutions engineer",
+            "GCP engineer",
+          ].includes(query),
+      )
     : discoveryQueries;
 const discoveryTasks = activeDiscoveryQueries.flatMap((query) => [
   { query, country: "IN", pages: MAX_INDIA_PAGES },
@@ -714,7 +793,11 @@ const currentExisting = existing.jobs
   .map((job) => {
     const categories = [
       ...new Set([
-        ...job.categories,
+        ...job.categories.filter(
+          (category) =>
+            category !== "Software Engineering" &&
+            category !== "Cloud Engineering",
+        ),
         ...categoriesFor(job.title, job.description),
       ]),
     ];
@@ -751,14 +834,20 @@ const remaining = allJobs
     return bIndia - aIndia || a.daysAgo - b.daysAgo;
   });
 
-while (Object.values(counts).some((count) => count < TARGET_PER_CATEGORY)) {
+const targetFor = (category) => CATEGORY_TARGETS[category] ?? TARGET_PER_CATEGORY;
+
+while (
+  Object.entries(counts).some(
+    ([category, count]) => count < targetFor(category),
+  )
+) {
   let bestIndex = -1;
   let bestScore = 0;
   for (let index = 0; index < remaining.length; index += 1) {
     const job = remaining[index];
     const categoryScore = job.categories.reduce(
       (score, category) =>
-        score + Math.max(0, TARGET_PER_CATEGORY - counts[category]),
+        score + Math.max(0, targetFor(category) - counts[category]),
       0,
     );
     const indiaBonus = job.regionType === "India" ? TARGET_PER_CATEGORY : 0;
@@ -787,7 +876,7 @@ const finalCounts = Object.fromEntries(
   ]),
 );
 const missing = Object.entries(finalCounts).filter(
-  ([, count]) => count < TARGET_PER_CATEGORY,
+  ([category, count]) => count < targetFor(category),
 );
 if (missing.length) {
   throw new Error(

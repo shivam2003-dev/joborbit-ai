@@ -64,8 +64,12 @@ const categoryQueries = {
   "Cloud Engineering": [
     "cloud engineer",
     "cloud infrastructure",
+    "cloud infrastructure engineer",
+    "cloud platform engineer",
+    "cloud solutions engineer",
     "AWS engineer",
     "Azure engineer",
+    "GCP engineer",
     "cloud architect",
   ],
   Cybersecurity: [
@@ -90,6 +94,15 @@ const categoryQueries = {
     "Node.js developer",
     ".NET developer",
     "Python developer",
+    "mobile developer",
+    "Android developer",
+    "iOS developer",
+    "Golang developer",
+    "Ruby developer",
+    "C++ developer",
+    "React Native developer",
+    "web engineer",
+    "API developer",
   ],
 };
 

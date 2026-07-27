@@ -185,23 +185,33 @@ const seniorTitlePattern =
 
 // Defensive runtime filter: even a stale generated file cannot expose expired or
 // older-than-45-day listings.
-export const JOBS: Job[] = importedJobs.filter((job) => {
-  const published = Date.parse(job.publishedAt);
-  const expires = Date.parse(job.expiresAt);
-  return (
-    job.isActive &&
-    Number.isFinite(published) &&
-    Number.isFinite(expires) &&
-    published >= cutoff &&
-    published <= now + 24 * 60 * 60 * 1000 &&
-    expires > now &&
-    job.experienceMinimum >= 1 &&
-    job.experienceMinimum <= 4 &&
-    !seniorTitlePattern.test(job.title) &&
-    /^https:\/\//.test(job.applicationUrl) &&
-    /^https:\/\//.test(job.sourceUrl)
-  );
-});
+export const JOBS: Job[] = importedJobs
+  .filter((job) => {
+    const published = Date.parse(job.publishedAt);
+    const expires = Date.parse(job.expiresAt);
+    return (
+      job.isActive &&
+      Number.isFinite(published) &&
+      Number.isFinite(expires) &&
+      published >= cutoff &&
+      published <= now + 24 * 60 * 60 * 1000 &&
+      expires > now &&
+      job.experienceMinimum >= 1 &&
+      job.experienceMinimum <= 4 &&
+      !seniorTitlePattern.test(job.title) &&
+      /^https:\/\//.test(job.applicationUrl) &&
+      /^https:\/\//.test(job.sourceUrl)
+    );
+  })
+  .map((job) => ({
+    ...job,
+    // Recalculate on every page load so relative dates and date filters advance
+    // automatically even between feed refreshes.
+    daysAgo: Math.max(
+      0,
+      Math.floor((now - Date.parse(job.publishedAt)) / (24 * 60 * 60 * 1000)),
+    ),
+  }));
 
 const companyColors = ["#111827", "#4f46e5", "#0891b2", "#7c3aed", "#16a34a", "#ea580c", "#db2777", "#2563eb", "#b45309", "#0f766e"];
 
