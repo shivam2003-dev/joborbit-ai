@@ -6,6 +6,16 @@
     "url": "https://himalayas.app/jobs",
     "api": "https://himalayas.app/jobs/api"
   },
+  "exchangeRates": {
+    "source": "Frankfurter",
+    "sourceUrl": "https://frankfurter.dev/",
+    "date": "2026-07-27",
+    "ratesToInr": {
+      "INR": 1,
+      "USD": 96.53,
+      "CAD": 68.571
+    }
+  },
   "counts": {
     "Artificial Intelligence": 1,
     "Machine Learning": 4,

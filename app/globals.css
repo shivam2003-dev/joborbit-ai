@@ -2051,6 +2051,21 @@ svg {
   color: var(--faint);
 }
 
+.fx-note {
+  margin: 14px 0 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.fx-note a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--primary);
+  font-weight: 680;
+}
+
 .salary-guide {
   margin-top: 46px;
   display: grid;
@@ -2167,6 +2182,94 @@ svg {
 .checklist-grid li svg {
   width: 14px;
   color: var(--green);
+}
+
+.public-resource-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+
+.public-resource-card {
+  padding: 22px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+}
+
+.public-resource-card > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--primary);
+  font-size: 10px;
+  font-weight: 730;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+.public-resource-card > div svg {
+  width: 18px;
+}
+
+.public-resource-card h3 {
+  margin: 15px 0 7px;
+  font-size: 17px;
+}
+
+.public-resource-card > p {
+  min-height: 52px;
+  margin: 0 0 15px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.public-resource-card ul {
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 7px;
+  list-style: none;
+}
+
+.public-resource-card li a {
+  min-height: 52px;
+  padding: 9px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-soft);
+  transition: border-color 160ms ease, transform 160ms ease;
+}
+
+.public-resource-card li a:hover {
+  border-color: var(--primary);
+  transform: translateX(2px);
+}
+
+.public-resource-card li span,
+.public-resource-card li b,
+.public-resource-card li small {
+  display: block;
+}
+
+.public-resource-card li b {
+  font-size: 11px;
+}
+
+.public-resource-card li small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.public-resource-card li svg {
+  flex: 0 0 auto;
+  color: var(--faint);
 }
 
 .track-grid {
@@ -2691,7 +2794,8 @@ svg {
     min-height: 170px;
   }
   .insight-stat-grid,
-  .roadmap-grid {
+  .roadmap-grid,
+  .public-resource-grid {
     grid-template-columns: 1fr 1fr;
   }
 }
@@ -2917,7 +3021,8 @@ svg {
   .roadmap-grid,
   .checklist-grid,
   .salary-guide,
-  .track-grid {
+  .track-grid,
+  .public-resource-grid {
     grid-template-columns: 1fr;
   }
   .salary-role {

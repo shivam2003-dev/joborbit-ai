@@ -47,6 +47,7 @@ import {
   JOB_DATA_META,
   JOBS,
   formatSalary,
+  formatSalaryInInr,
   getCompanyById,
   getJobBySlug,
   postedLabel,
@@ -868,31 +869,32 @@ function AlertPage() {
 function SalaryInsightsPage() {
   const salaryJobs = JOBS.filter((job) => job.salaryDisclosed);
   const currencies = [...new Set(salaryJobs.map((job) => job.salaryCurrency))];
+  const fx = JOB_DATA_META.exchangeRates;
   return (
     <main className="insights-page">
       <div className="page-shell">
         <section className="insights-hero">
           <div>
-            <span className="eyebrow"><BarChart3 size={14} /> Source-backed salary insights</span>
-            <h1>Understand the offer before you apply</h1>
-            <p>Salary information appears only when the original job source publishes it. Different currencies and pay periods are never combined into a misleading average.</p>
+            <span className="eyebrow"><BarChart3 size={14} /> Salary insights in Indian rupees</span>
+            <h1>Compare published pay in ₹ INR</h1>
+            <p>Every range is converted to Indian rupees for quick comparison while the original source currency remains visible. Missing salaries are never estimated.</p>
           </div>
           <div className="insights-hero-card">
             <CircleDollarSign />
-            <b>{salaryJobs.length}</b>
-            <span>current jobs disclose salary</span>
-            <small>from {JOBS.length} eligible 1–4 year roles</small>
+            <b>₹ INR</b>
+            <span>{salaryJobs.length} current salary ranges</span>
+            <small>FX reference date {fx.date}</small>
           </div>
         </section>
         <div className="insight-stat-grid">
           <div><BriefcaseBusiness /><b>{JOBS.length}</b><span>eligible active jobs</span></div>
           <div><CircleDollarSign /><b>{salaryJobs.length}</b><span>salary-disclosed roles</span></div>
-          <div><Globe2 /><b>{currencies.length}</b><span>published currencies</span></div>
+          <div><Globe2 /><b>{currencies.length}</b><span>source currencies converted</span></div>
           <div><CalendarDays /><b>45 days</b><span>maximum listing age</span></div>
         </div>
         <section className="salary-section">
           <div className="section-heading">
-            <div><span className="section-kicker">Live compensation data</span><h2>Roles with published salary</h2><p>Open the source listing to confirm location, tax treatment, equity and benefits.</p></div>
+            <div><span className="section-kicker">Live compensation data</span><h2>Published ranges converted to INR</h2><p>Open the source listing to confirm location, tax treatment, equity and benefits.</p></div>
             <AppLink href="/jobs?salary=true" className="text-link">Filter salary jobs <ArrowRight size={15} /></AppLink>
           </div>
           {salaryJobs.length > 0 ? (
@@ -901,16 +903,20 @@ function SalaryInsightsPage() {
                 <AppLink href={`/jobs/${job.slug}`} className="salary-role" key={job.id}>
                   <CompanyLogo job={job} />
                   <div><b>{job.title}</b><span>{job.companyName} · {job.locationText}</span></div>
-                  <strong>{formatSalary(job)}</strong>
-                  <small>{job.salaryPeriod} · {job.salaryCurrency}</small>
+                  <strong>{formatSalaryInInr(job)}</strong>
+                  <small>Original: {formatSalary(job)} · {job.salaryPeriod}</small>
                   <ArrowRight size={17} />
                 </AppLink>
               ))}
             </div>
           ) : <div className="empty-state"><CircleDollarSign /><h3>No current source has disclosed salary</h3><p>Listings will appear here automatically after the next source refresh.</p></div>}
+          <p className="fx-note">
+            Indicative conversion using {fx.source} reference rates dated {fx.date}.{" "}
+            <a href={fx.sourceUrl} target="_blank" rel="noreferrer">View exchange-rate source <ExternalLink size={12} /></a>
+          </p>
         </section>
         <section className="salary-guide">
-          <div><TrendingUp /><h3>Compare like with like</h3><p>Normalize currency, annual versus hourly pay, and expected working hours before comparing two offers.</p></div>
+          <div><TrendingUp /><h3>Use INR as a reference</h3><p>Conversion makes international ranges easier to scan, but it does not represent India-localized pay or take-home salary.</p></div>
           <div><Target /><h3>Ask for the full range</h3><p>Confirm base salary, bonus, equity, benefits, review cycle and whether the published range changes by location.</p></div>
           <div><ShieldCheck /><h3>Verify at the source</h3><p>JobOrbit displays source-provided values without estimating missing compensation.</p></div>
         </section>
@@ -930,6 +936,62 @@ function CareerResourcesPage() {
     ["Resume", ["Lead with measurable impact", "Match skills to the role", "Keep dates and titles factual", "Link relevant projects"]],
     ["Portfolio", ["Show a deployment path", "Document reliability choices", "Include monitoring evidence", "Explain one failure and fix"]],
     ["Interview", ["Prepare a 90-second introduction", "Use STAR for incident stories", "Review core commands", "Bring questions for the team"]],
+  ];
+  const roleResources = [
+    {
+      role: "DevOps & SRE",
+      copy: "Linux, delivery pipelines, reliability and production troubleshooting.",
+      resources: [
+        ["roadmap.sh DevOps", "Role roadmap", "https://roadmap.sh/devops"],
+        ["Prepare.sh DevOps", "Interview practice", "https://prepare.sh/interviews/devops"],
+        ["Kubernetes Basics", "Hands-on tutorial", "https://kubernetes.io/docs/tutorials/kubernetes-basics/"],
+      ],
+    },
+    {
+      role: "AI & Machine Learning",
+      copy: "Applied AI foundations, model development and practical learning paths.",
+      resources: [
+        ["roadmap.sh AI Engineer", "Role roadmap", "https://roadmap.sh/ai-engineer"],
+        ["Google ML Crash Course", "Free course", "https://developers.google.com/machine-learning/crash-course"],
+        ["Hugging Face Learn", "Open courses", "https://huggingface.co/learn"],
+      ],
+    },
+    {
+      role: "MLOps & Platform",
+      copy: "Model delivery, reproducibility, platform workflows and cloud-native operations.",
+      resources: [
+        ["roadmap.sh MLOps", "Role roadmap", "https://roadmap.sh/mlops"],
+        ["MLOps Zoomcamp", "Open course", "https://github.com/DataTalksClub/mlops-zoomcamp"],
+        ["CNCF Glossary", "Concept reference", "https://glossary.cncf.io/"],
+      ],
+    },
+    {
+      role: "Cloud Engineering",
+      copy: "Cloud fundamentals, infrastructure design and practical environments.",
+      resources: [
+        ["Prepare.sh Workspaces", "Hands-on labs", "https://prepare.sh/workspaces"],
+        ["AWS Skill Builder", "Cloud learning", "https://skillbuilder.aws/"],
+        ["Microsoft Learn Azure", "Cloud learning", "https://learn.microsoft.com/training/azure/"],
+      ],
+    },
+    {
+      role: "Data Science",
+      copy: "Python, data analysis, statistics and machine-learning practice.",
+      resources: [
+        ["Kaggle Learn", "Micro-courses", "https://www.kaggle.com/learn"],
+        ["scikit-learn Examples", "Practical reference", "https://scikit-learn.org/stable/auto_examples/index.html"],
+        ["Prepare.sh Quickstart", "Guided practice", "https://prepare.sh/quickstart"],
+      ],
+    },
+    {
+      role: "Cybersecurity",
+      copy: "Security foundations, web exploitation labs and defensive thinking.",
+      resources: [
+        ["roadmap.sh Cyber Security", "Role roadmap", "https://roadmap.sh/cyber-security"],
+        ["PortSwigger Academy", "Free hands-on labs", "https://portswigger.net/web-security"],
+        ["OWASP Top 10", "Security reference", "https://owasp.org/www-project-top-ten/"],
+      ],
+    },
   ];
   return (
     <main className="resources-page">
@@ -955,6 +1017,34 @@ function CareerResourcesPage() {
               const Icon = [FileText, Sparkles, Target][index];
               return <article key={title}><Icon /><h3>{title}</h3><ul>{items.map((item) => <li key={item}><Check />{item}</li>)}</ul></article>;
             })}
+          </div>
+        </section>
+        <section className="resource-section">
+          <div className="section-heading">
+            <div>
+              <span className="section-kicker">Public learning library</span>
+              <h2>Role-wise roadmaps, courses and practice</h2>
+              <p>Curated public resources open on their original websites. Availability and free-tier limits are controlled by each provider.</p>
+            </div>
+          </div>
+          <div className="public-resource-grid">
+            {roleResources.map(({ role, copy, resources }) => (
+              <article className="public-resource-card" key={role}>
+                <div><BookOpen /><span>Learning track</span></div>
+                <h3>{role}</h3>
+                <p>{copy}</p>
+                <ul>
+                  {resources.map(([name, type, url]) => (
+                    <li key={url}>
+                      <a href={url} target="_blank" rel="noreferrer">
+                        <span><b>{name}</b><small>{type}</small></span>
+                        <ExternalLink size={15} />
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </article>
+            ))}
           </div>
         </section>
         <section className="resource-section">

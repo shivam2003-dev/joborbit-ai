@@ -166,6 +166,7 @@ export const JOB_DATA_META = {
   fetchedAt: liveJobData.fetchedAt,
   cutoffDate: liveJobData.cutoffDate,
   source: liveJobData.source,
+  exchangeRates: liveJobData.exchangeRates,
   counts: liveJobData.counts as Record<JobCategory, number>,
 };
 
@@ -248,6 +249,31 @@ export function formatSalary(job: Job) {
   }
   if (job.salaryMinimum > 0) return `From ${formatter.format(job.salaryMinimum)}`;
   return `Up to ${formatter.format(job.salaryMaximum)}`;
+}
+
+export function formatSalaryInInr(job: Job) {
+  if (!job.salaryDisclosed) return "Salary not disclosed";
+  const rates = JOB_DATA_META.exchangeRates.ratesToInr as Record<string, number>;
+  const rate = rates[job.salaryCurrency];
+  if (!rate) return formatSalary(job);
+  const formatter = (amount: number) => {
+    const [divisor, suffix] = amount >= 10_000_000
+      ? [10_000_000, "Cr"]
+      : amount >= 100_000
+        ? [100_000, "L"]
+        : [1, ""];
+    const rounded = Math.round((amount / divisor) * 10) / 10;
+    const value = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+    return `₹${value}${suffix}`;
+  };
+  const minimum = Math.round(job.salaryMinimum * rate);
+  const maximum = Math.round(job.salaryMaximum * rate);
+  if (minimum > 0 && maximum > 0) {
+    if (minimum === maximum) return formatter(minimum);
+    return `${formatter(minimum)}–${formatter(maximum)}`;
+  }
+  if (minimum > 0) return `From ${formatter(minimum)}`;
+  return `Up to ${formatter(maximum)}`;
 }
 
 export function postedLabel(daysAgo: number) {

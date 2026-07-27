@@ -359,6 +359,38 @@ async function runPool(entries) {
   await Promise.all(Array.from({ length: MAX_CONCURRENCY }, () => worker()));
 }
 
+async function fetchExchangeRatesToInr(currencies) {
+  if (!currencies.length) {
+    return {
+      source: "Frankfurter",
+      sourceUrl: "https://frankfurter.dev/",
+      date: new Date(now).toISOString().slice(0, 10),
+      ratesToInr: { INR: 1 },
+    };
+  }
+  const rates = await Promise.all(
+    currencies.map(async (currency) => {
+      const response = await fetch(
+        `https://api.frankfurter.dev/v2/rate/${currency}/INR`,
+      );
+      if (!response.ok) {
+        throw new Error(`FX request failed for ${currency}/INR: ${response.status}`);
+      }
+      const payload = await response.json();
+      return [currency, payload.rate, payload.date];
+    }),
+  );
+  return {
+    source: "Frankfurter",
+    sourceUrl: "https://frankfurter.dev/",
+    date: rates.map(([, , date]) => date).sort().at(0),
+    ratesToInr: {
+      INR: 1,
+      ...Object.fromEntries(rates.map(([currency, rate]) => [currency, rate])),
+    },
+  };
+}
+
 await runPool(Object.entries(categoryQueries));
 
 const records = [...globalJobs.values()]
@@ -382,6 +414,13 @@ const records = [...globalJobs.values()]
   })
   .filter(Boolean)
   .map((job, index) => ({ ...job, isFeatured: index < 6 }));
+const exchangeRates = await fetchExchangeRatesToInr([
+  ...new Set(
+    records
+      .filter((job) => job.salaryDisclosed && job.salaryCurrency !== "INR")
+      .map((job) => job.salaryCurrency),
+  ),
+]);
 
 const counts = Object.fromEntries(
   Object.keys(categoryQueries).map((category) => [
@@ -402,6 +441,7 @@ await writeFile(
         url: "https://himalayas.app/jobs",
         api: "https://himalayas.app/jobs/api",
       },
+      exchangeRates,
       counts,
       jobs: records,
     },

@@ -15,6 +15,8 @@ The catalogue contains real listings from the
 
 Counts change as eligible listings are added, close or expire. Company logos
 come from the same source feed and fall back to initials when unavailable.
+Published salary ranges are also shown as indicative Indian rupee conversions
+using dated public exchange-rate data while preserving the original currency.
 
 ## Product surfaces
 
